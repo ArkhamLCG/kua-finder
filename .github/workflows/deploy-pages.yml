@@ -1,0 +1,61 @@
+name: Deploy GitHub Pages
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Twice daily: 03:00 and 15:00 UTC (06:00 / 18:00 MSK)
+    - cron: "0 3,15 * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Configure API env
+        run: cp api/.env.example api/.env
+
+      - name: Parse catalog page
+        run: npm run parse:page
+
+      - name: Update product stock
+        run: npm run update:products
+
+      - name: Build client for GitHub Pages
+        run: npm run build:pages
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: client/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

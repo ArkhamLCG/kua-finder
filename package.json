@@ -8,14 +8,22 @@
   ],
   "scripts": {
     "dev": "npm run dev -w kua-finder-api",
+    "dev:client": "npm run dev -w kua-finder-client",
     "build": "npm run build -w kua-finder-api",
+    "build:client": "npm run build -w kua-finder-client",
+    "build:pages": "npm run build:pages -w kua-finder-client",
     "start": "npm run start -w kua-finder-api",
-    "typecheck": "npm run typecheck -w kua-finder-api",
+    "typecheck": "npm run typecheck -w kua-finder-api && npm run typecheck -w kua-finder-client",
     "test": "npm run test -w kua-finder-api",
     "parse:page": "npm run parse:page -w kua-finder-api",
     "update:products": "npm run update:products -w kua-finder-api",
     "parse:product": "npm run parse:product -w kua-finder-api",
-    "parse:region": "npm run parse:region -w kua-finder-api"
+    "parse:region": "npm run parse:region -w kua-finder-api",
+    "parse:shop": "npm run parse:shop -w kua-finder-api",
+    "repair:locations": "npm run repair:locations -w kua-finder-api",
+    "copy:data": "npm run copy-data -w kua-finder-client",
+    "prepare:pages": "npm run parse:page && npm run update:products && npm run build:pages",
+    "deploy:pages": "gh workflow run \"Deploy GitHub Pages\""
   },
   "engines": {
     "node": ">=20"

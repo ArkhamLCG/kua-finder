@@ -12,7 +12,9 @@
     "parse:page": "tsx src/scripts/parse-page.ts",
     "update:products": "tsx src/scripts/update-products.ts",
     "parse:product": "tsx src/scripts/parse-product.ts",
-    "parse:region": "tsx src/scripts/parse-region.ts"
+    "parse:region": "tsx src/scripts/parse-region.ts",
+    "parse:shop": "tsx src/scripts/parse-shop.ts",
+    "repair:locations": "tsx src/scripts/repair-locations.ts"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

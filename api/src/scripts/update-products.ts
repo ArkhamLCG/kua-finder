@@ -1,22 +1,41 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { CATEGORY_URL } from "../config.js";
-import { parsePage, type ParsedProduct } from "../services/parse/page/page-parser.js";
+import {
+  parsePage,
+  type ParsedProduct,
+} from "../services/parse/page/page-parser.js";
 import { parseProductAll } from "../services/parse/product/product-parser.js";
 import { parseRegions } from "../services/parse/region/region-parser.js";
+import { resolveRegionId } from "../services/parse/region/region-id.js";
+import {
+  buildShopPhoneMap,
+  parseShops,
+} from "../services/parse/shop/shop-parser.js";
 
-export type ProductWithStock = ParsedProduct & {
-  stock: Array<{
-    regionId: number;
-    regionName: string;
-    locations: Array<{
-      name: string;
-      address: string;
-      status: number;
-      statusText: string;
-      delivery: boolean;
-    }>;
-  }>;
+export type CatalogLocation = {
+  id: number;
+  regionId: number;
+  name: string;
+  address: string;
+  phone: string;
+  delivery: boolean;
+};
+
+export type ProductStockItem = {
+  locationId: number;
+  status: number;
+  statusText: string;
+};
+
+export type CatalogProduct = ParsedProduct & {
+  availableLocationIds: number[];
+};
+
+export type ProductStockFile = {
+  id: number;
+  last_updated: string;
+  stock: ProductStockItem[];
 };
 
 function formatDuration(ms: number): string {
@@ -33,28 +52,140 @@ function setProgress(text: string): void {
 }
 
 function clearProgress(): void {
-  process.stdout.write("\r\x1b[2K");
+  process.stdout.write(`\r\x1b[2K`);
+}
+
+function locationKey(
+  regionId: number,
+  name: string,
+  address: string,
+  delivery: boolean,
+): string {
+  // Physical stores are unique by name/address; delivery is region-scoped.
+  if (delivery) return `d\0${regionId}\0${name}`;
+  return `s\0${name}\0${address}`;
+}
+
+function isInStock(status: number): boolean {
+  return status > 0;
 }
 
 const url = process.argv[2] ?? CATEGORY_URL;
 const outDir = path.resolve("dist");
 const outFile = path.join(outDir, "products.json");
+const productsDir = path.join(outDir, "products");
 
 await mkdir(outDir, { recursive: true });
 
-console.log("1/3 Catalog…");
-const products = await parsePage(url);
-console.log(`   ${products.length} products`);
+console.log("1/4 Catalog…");
+let products: ParsedProduct[];
+try {
+  const raw = JSON.parse(await readFile(outFile, "utf8")) as {
+    products?: ParsedProduct[];
+  };
+  if (!Array.isArray(raw.products) || raw.products.length === 0) {
+    throw new Error("empty products.json");
+  }
+  products = raw.products.map((product) => ({
+    id: product.id,
+    price: product.price,
+    name: product.name,
+    image: product.image,
+    url: product.url,
+  }));
+  console.log(`   ${products.length} products (from products.json)`);
+} catch {
+  products = await parsePage(url);
+  await writeFile(
+    outFile,
+    JSON.stringify(
+      {
+        last_updated: new Date().toISOString(),
+        products,
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(`   ${products.length} products (parsed page)`);
+}
 
-console.log("2/3 Regions…");
+console.log("2/4 Regions…");
 const regions = await parseRegions();
 console.log(`   ${regions.length} regions`);
+await writeFile(
+  path.join(outDir, "regions.json"),
+  JSON.stringify(regions, null, 2),
+);
 
-console.log("3/3 Stock…");
-const result: ProductWithStock[] = [];
+console.log("3/4 Shops…");
+const shops = await parseShops();
+const shopPhones = buildShopPhoneMap(shops);
+console.log(`   ${shops.length} shops, ${shopPhones.size} with phone`);
+await writeFile(
+  path.join(outDir, "shops.json"),
+  JSON.stringify(shops, null, 2),
+);
+
+console.log("4/4 Stock…");
+await rm(productsDir, { recursive: true, force: true });
+await mkdir(productsDir, { recursive: true });
+
+const locations: CatalogLocation[] = [];
+const locationIds = new Map<string, number>();
+const result: CatalogProduct[] = products.map((product) => ({
+  ...product,
+  availableLocationIds: [],
+}));
 const startedAt = Date.now();
 let ok = 0;
 let fail = 0;
+
+function ensureLocation(input: {
+  regionId: number;
+  name: string;
+  address: string;
+  delivery: boolean;
+}): number {
+  const regionId = input.delivery
+    ? input.regionId
+    : resolveRegionId(input.name, regions, input.regionId);
+  const key = locationKey(
+    regionId,
+    input.name,
+    input.address,
+    input.delivery,
+  );
+  const existing = locationIds.get(key);
+  if (existing != null) return existing;
+
+  const id = locations.length + 1;
+  locationIds.set(key, id);
+  locations.push({
+    id,
+    regionId,
+    name: input.name,
+    address: input.address,
+    phone: shopPhones.get(input.name) ?? "",
+    delivery: input.delivery,
+  });
+  return id;
+}
+
+async function saveIndex(): Promise<void> {
+  await writeFile(
+    outFile,
+    JSON.stringify(
+      {
+        last_updated: new Date().toISOString(),
+        locations,
+        products: result,
+      },
+      null,
+      2,
+    ),
+  );
+}
 
 for (const [index, product] of products.entries()) {
   const productNo = index + 1;
@@ -91,22 +222,76 @@ for (const [index, product] of products.entries()) {
     );
 
     active = false;
-    result.push({
+
+    const stockByLocation = new Map<number, ProductStockItem>();
+    for (const region of stock.regions) {
+      const scrapedRegionId = region.regionId ?? 0;
+      for (const location of region.locations) {
+        if (!isInStock(location.status)) continue;
+
+        const resolvedRegionId = location.delivery
+          ? scrapedRegionId
+          : resolveRegionId(location.name, regions, scrapedRegionId);
+
+        // API often returns foreign stores inside another region's popup.
+        if (!location.delivery && resolvedRegionId !== scrapedRegionId) {
+          continue;
+        }
+
+        const locationId = ensureLocation({
+          regionId: scrapedRegionId,
+          name: location.name,
+          address: location.address,
+          delivery: location.delivery,
+        });
+
+        const prev = stockByLocation.get(locationId);
+        if (!prev || location.status > prev.status) {
+          stockByLocation.set(locationId, {
+            locationId,
+            status: location.status,
+            statusText: location.statusText,
+          });
+        }
+      }
+    }
+
+    const availableStock = [...stockByLocation.values()];
+    const availableLocationIds = availableStock.map((item) => item.locationId);
+    result[index] = {
       ...product,
-      stock: stock.regions.map((region) => ({
-        regionId: region.regionId ?? 0,
-        regionName: region.regionName ?? "",
-        locations: region.locations,
-      })),
-    });
+      availableLocationIds,
+    };
+
+    const detail: ProductStockFile = {
+      id: product.id,
+      last_updated: new Date().toISOString(),
+      stock: availableStock,
+    };
+    await writeFile(
+      path.join(productsDir, `${product.id}.json`),
+      JSON.stringify(detail, null, 2),
+    );
     ok += 1;
   } catch (error) {
     active = false;
     fail += 1;
-    result.push({
+    result[index] = {
       ...product,
-      stock: [],
-    });
+      availableLocationIds: [],
+    };
+    await writeFile(
+      path.join(productsDir, `${product.id}.json`),
+      JSON.stringify(
+        {
+          id: product.id,
+          last_updated: new Date().toISOString(),
+          stock: [],
+        } satisfies ProductStockFile,
+        null,
+        2,
+      ),
+    );
     setProgress(
       [
         `${productNo}/${products.length}`,
@@ -119,20 +304,10 @@ for (const [index, product] of products.entries()) {
     );
   }
 
-  await writeFile(
-    outFile,
-    JSON.stringify(
-      {
-        last_updated: new Date().toISOString(),
-        products: result,
-      },
-      null,
-      2,
-    ),
-  );
+  await saveIndex();
 }
 
 clearProgress();
 console.log(
-  `Done: ${ok} ok, ${fail} fail, ${formatDuration(Date.now() - startedAt)} → ${outFile}`,
+  `Done: ${ok} ok, ${fail} fail, ${locations.length} locations, ${formatDuration(Date.now() - startedAt)} → ${outFile} + ${productsDir}/`,
 );

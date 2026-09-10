@@ -1,5 +1,32 @@
 {
   "name": "kua-finder-client",
   "version": "0.1.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "copy-data": "node scripts/copy-data.mjs",
+    "predev": "npm run copy-data",
+    "dev": "vite",
+    "prebuild": "npm run copy-data",
+    "build": "tsc -b && vite build",
+    "prebuild:pages": "npm run copy-data",
+    "build:pages": "BASE_PATH=/kua-finder/ tsc -b && BASE_PATH=/kua-finder/ vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.8.2",
+    "vite": "^6.0.7"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }
