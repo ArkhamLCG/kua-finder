@@ -1,0 +1,23 @@
+{
+  "name": "kua-finder",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "api",
+    "client"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w kua-finder-api",
+    "build": "npm run build -w kua-finder-api",
+    "start": "npm run start -w kua-finder-api",
+    "typecheck": "npm run typecheck -w kua-finder-api",
+    "test": "npm run test -w kua-finder-api",
+    "parse:page": "npm run parse:page -w kua-finder-api",
+    "update:products": "npm run update:products -w kua-finder-api",
+    "parse:product": "npm run parse:product -w kua-finder-api",
+    "parse:region": "npm run parse:region -w kua-finder-api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
