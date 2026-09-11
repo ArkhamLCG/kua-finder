@@ -44,7 +44,7 @@ export function ProductCard({
         ? `${storeCount} ${pluralCities(storeCount)}`
         : `${storeCount} ${pluralStores(storeCount)}`;
   } else {
-    statusText = "Онлайн-доставка";
+    statusText = "Есть онлайн";
   }
 
   const showSources = badges.length > 1;
