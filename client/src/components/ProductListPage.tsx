@@ -5,11 +5,9 @@ import {
   listCities,
   productHasStock,
 } from "../lib/catalog";
+import { CATALOG_DISCLAIMER } from "../lib/disclaimer";
 import { useCatalog } from "../hooks/useCatalog";
 import { ProductCard } from "./ProductCard";
-
-const DISCLAIMER =
-  "Тут только 3 магазина. Если дополнения нет в наличии, посмотрите его на Озон, Wildberries или Авито.";
 
 export function ProductListPage() {
   const { products, locationsById, regionNames, catalog } = useCatalog();
@@ -102,7 +100,7 @@ export function ProductListPage() {
             обновлено {formatUpdatedAt(catalog.last_updated)}
           </p>
         )}
-        <p className="hero__disclaimer">{DISCLAIMER}</p>
+        <p className="hero__disclaimer">{CATALOG_DISCLAIMER}</p>
       </header>
 
       {sorted.length === 0 ? (

@@ -8,11 +8,9 @@ import {
   getOnlineOffers,
   loadProductStock,
 } from "../lib/catalog";
+import { CATALOG_DISCLAIMER } from "../lib/disclaimer";
 import { useCatalog } from "../hooks/useCatalog";
 import type { ProductStockItem } from "../types";
-
-const DISCLAIMER =
-  "Тут только 3 магазина. Если дополнения нет в наличии, посмотрите его на Озон, Wildberries или Авито.";
 
 export function ProductDetailPage() {
   const { productId } = useParams();
@@ -132,7 +130,7 @@ export function ProductDetailPage() {
         </div>
       </article>
 
-      <p className="detail__disclaimer">{DISCLAIMER}</p>
+      <p className="detail__disclaimer">{CATALOG_DISCLAIMER}</p>
 
       {stockStatus === "loading" && (
         <div className="detail-loader" role="status" aria-live="polite">

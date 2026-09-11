@@ -35,21 +35,17 @@ export function ProductCard({
     regionId,
   );
 
-  let statusText = "Нет в наличии";
-  if (available) {
-    if (storeCount > 0) {
-      statusText =
-        regionId == null
-          ? `В наличии · ${storeCount} ${pluralCities(storeCount)}`
-          : `В наличии · ${storeCount} ${pluralStores(storeCount)}`;
-    } else if (badges.length > 0) {
-      statusText = "В наличии онлайн";
-    } else {
-      statusText = "В наличии";
-    }
-  } else if (regionId != null) {
-    statusText = "Нет в этом городе";
+  let statusText: string | null = null;
+  if (!available) {
+    statusText = "Нет в наличии";
+  } else if (storeCount > 0) {
+    statusText =
+      regionId == null
+        ? `${storeCount} ${pluralCities(storeCount)}`
+        : `${storeCount} ${pluralStores(storeCount)}`;
   }
+
+  const showSources = badges.length > 1;
 
   return (
     <article
@@ -66,33 +62,35 @@ export function ProductCard({
         <div className="product-card__body">
           <h2 className="product-card__title">{product.name}</h2>
           <p className="product-card__price">{formatPrice(product.price)}</p>
-          <p
-            className={`product-card__status${available ? " is-available" : " is-unavailable"}`}
-          >
-            {statusText}
-          </p>
         </div>
       </Link>
 
-      {badges.length > 1 ? (
-        <div className="product-card__sources">
-          <ul className="product-card__retailers" aria-label="Магазины">
-            {badges.map((badge) => (
-              <li key={badge.source} className="product-card__retailer">
-                <a
-                  className="retailer-badge"
-                  href={badge.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={badge.name}
-                  aria-label={badge.name}
-                >
-                  <RetailerIcon source={badge.source} />
-                  <span className="retailer-badge__label">{badge.name}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
+      {statusText || showSources ? (
+        <div
+          className={`product-card__meta${available ? " is-available" : " is-unavailable"}`}
+        >
+          {statusText ? (
+            <span className="product-card__status">{statusText}</span>
+          ) : null}
+          {showSources ? (
+            <ul className="product-card__retailers" aria-label="Магазины">
+              {badges.map((badge) => (
+                <li key={badge.source} className="product-card__retailer">
+                  <a
+                    className="retailer-badge"
+                    href={badge.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={badge.name}
+                    aria-label={badge.name}
+                  >
+                    <RetailerIcon source={badge.source} />
+                    <span className="retailer-badge__label">{badge.name}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
     </article>
