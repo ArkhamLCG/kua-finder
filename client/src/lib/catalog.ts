@@ -2,10 +2,14 @@ import type {
   CatalogLocation,
   CatalogProduct,
   CatalogRegion,
+  CatalogSource,
   CityAvailability,
+  OnlineOffer,
+  ProductOnlineOffer,
   ProductStockDetail,
   ProductStockItem,
   ProductsCatalog,
+  RetailerBadge,
   StoreAvailability,
 } from "../types";
 import type { LoadProgress } from "./progress";
@@ -24,6 +28,16 @@ export function formatQuantity(status: number): string {
     return `${status} штуки`;
   }
   return `${status} штук`;
+}
+
+export function formatStockLabel(
+  status: number,
+  location?: CatalogLocation,
+): string {
+  if (location?.delivery) {
+    return status > 0 ? "В наличии" : "Нет в наличии";
+  }
+  return formatQuantity(status);
 }
 
 function extractCityFromStoreName(name: string): string | null {
@@ -83,14 +97,108 @@ function storeLocationIds(
   return ids;
 }
 
+function isRetailerOnline(location: CatalogLocation): boolean {
+  return (
+    location.delivery &&
+    (location.source === "lavka" || location.source === "gaga")
+  );
+}
+
+export function productHasOnline(
+  product: CatalogProduct,
+  locationsById: Map<number, CatalogLocation>,
+): boolean {
+  if ((product.onlineOffers ?? []).some((offer) => Boolean(offer.url))) {
+    return true;
+  }
+  return product.availableLocationIds.some((locationId) => {
+    const location = locationsById.get(locationId);
+    return location != null && isRetailerOnline(location);
+  });
+}
+
 export function productHasStock(
   product: CatalogProduct,
   locationsById: Map<number, CatalogLocation>,
   regionId: number | null = null,
   regionNames: Map<number, string> = new Map(),
 ): boolean {
-  return storeLocationIds(product, locationsById, regionNames, regionId)
-    .length > 0;
+  if (productHasOnline(product, locationsById)) return true;
+  return (
+    storeLocationIds(product, locationsById, regionNames, regionId).length > 0
+  );
+}
+
+export function getOnlineOffers(
+  stock: ProductStockItem[],
+  locationsById: Map<number, CatalogLocation>,
+): OnlineOffer[] {
+  const offers: OnlineOffer[] = [];
+  const seen = new Set<number>();
+
+  for (const item of stock) {
+    if (!isInStock(item.status)) continue;
+    const location = locationsById.get(item.locationId);
+    if (!location || !isRetailerOnline(location) || seen.has(location.id)) {
+      continue;
+    }
+    seen.add(location.id);
+    offers.push({
+      location,
+      status: item.status,
+      statusText: item.statusText,
+      url: item.url ?? null,
+    });
+  }
+
+  return offers.sort((a, b) =>
+    a.location.name.localeCompare(b.location.name, "ru"),
+  );
+}
+
+const RETAILER_LABELS: Record<CatalogSource, string> = {
+  hobbygames: "Hobby Games",
+  lavka: "Лавка игр",
+  gaga: "GaGa",
+};
+
+export function getRetailerBadges(
+  product: CatalogProduct,
+  locationsById: Map<number, CatalogLocation>,
+  regionNames: Map<number, string> = new Map(),
+  regionId: number | null = null,
+): RetailerBadge[] {
+  const badges: RetailerBadge[] = [];
+
+  const hasHobbyGames =
+    storeLocationIds(product, locationsById, regionNames, regionId).length > 0;
+
+  if (hasHobbyGames && product.url) {
+    badges.push({
+      source: "hobbygames",
+      name: RETAILER_LABELS.hobbygames,
+      count: 1,
+      url: product.url,
+    });
+  }
+
+  const bySource = new Map<ProductOnlineOffer["source"], string>();
+  for (const offer of product.onlineOffers ?? []) {
+    if (offer.url) bySource.set(offer.source, offer.url);
+  }
+
+  for (const source of ["lavka", "gaga"] as const) {
+    const url = bySource.get(source);
+    if (!url) continue;
+    badges.push({
+      source,
+      name: RETAILER_LABELS[source],
+      count: 1,
+      url,
+    });
+  }
+
+  return badges;
 }
 
 export function countAvailableStores(
@@ -274,6 +382,7 @@ function normalizeCatalog(raw: ProductsCatalog): ProductsCatalog {
       address: location.address,
       phone: location.phone ?? "",
       delivery: location.delivery,
+      source: location.source,
     })),
     products: (raw.products ?? []).map((product) => ({
       id: product.id,
@@ -283,6 +392,19 @@ function normalizeCatalog(raw: ProductsCatalog): ProductsCatalog {
       url: product.url,
       availableLocationIds: Array.isArray(product.availableLocationIds)
         ? product.availableLocationIds
+        : [],
+      onlineOffers: Array.isArray(product.onlineOffers)
+        ? product.onlineOffers
+            .filter(
+              (offer) =>
+                (offer.source === "lavka" || offer.source === "gaga") &&
+                typeof offer.url === "string" &&
+                offer.url.length > 0,
+            )
+            .map((offer) => ({
+              source: offer.source,
+              url: offer.url,
+            }))
         : [],
     })),
   };

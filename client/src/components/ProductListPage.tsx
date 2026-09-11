@@ -8,6 +8,9 @@ import {
 import { useCatalog } from "../hooks/useCatalog";
 import { ProductCard } from "./ProductCard";
 
+const DISCLAIMER =
+  "Тут только 3 магазина. Если дополнения нет в наличии, посмотрите его на Озон, Wildberries или Авито.";
+
 export function ProductListPage() {
   const { products, locationsById, regionNames, catalog } = useCatalog();
   const [query, setQuery] = useState("");
@@ -51,7 +54,7 @@ export function ProductListPage() {
       <header className="hero">
         <p className="hero__brand">Поиск сыщиков</p>
         <p className="hero__lead">
-          Поиск по каталогу Arkham Horror LCG и проверка остатков в Hobby Games.
+          Наличие Arkham Horror LCG в Hobby Games, Лавке игр и GaGa.
         </p>
 
         <div className="filters">
@@ -99,6 +102,7 @@ export function ProductListPage() {
             обновлено {formatUpdatedAt(catalog.last_updated)}
           </p>
         )}
+        <p className="hero__disclaimer">{DISCLAIMER}</p>
       </header>
 
       {sorted.length === 0 ? (

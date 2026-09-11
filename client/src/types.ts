@@ -1,3 +1,5 @@
+export type CatalogSource = "hobbygames" | "lavka" | "gaga";
+
 export type CatalogLocation = {
   id: number;
   regionId: number;
@@ -5,12 +7,20 @@ export type CatalogLocation = {
   address: string;
   phone: string;
   delivery: boolean;
+  source?: CatalogSource;
 };
 
 export type ProductStockItem = {
   locationId: number;
   status: number;
   statusText: string;
+  url?: string;
+};
+
+/** Online retailer link for list/preview (no need to load stock file). */
+export type ProductOnlineOffer = {
+  source: "lavka" | "gaga";
+  url: string;
 };
 
 export type CatalogProduct = {
@@ -20,6 +30,7 @@ export type CatalogProduct = {
   image: string | null;
   url: string;
   availableLocationIds: number[];
+  onlineOffers?: ProductOnlineOffer[];
 };
 
 export type ProductStockDetail = {
@@ -49,4 +60,18 @@ export type CityAvailability = {
   regionId: number;
   regionName: string;
   stores: StoreAvailability[];
+};
+
+export type OnlineOffer = {
+  location: CatalogLocation;
+  status: number;
+  statusText: string;
+  url: string | null;
+};
+
+export type RetailerBadge = {
+  source: CatalogSource;
+  name: string;
+  count: number;
+  url: string;
 };

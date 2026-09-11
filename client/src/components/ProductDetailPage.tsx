@@ -3,11 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import {
   formatPrice,
   formatQuantity,
+  formatStockLabel,
   getAvailableCities,
+  getOnlineOffers,
   loadProductStock,
 } from "../lib/catalog";
 import { useCatalog } from "../hooks/useCatalog";
 import type { ProductStockItem } from "../types";
+
+const DISCLAIMER =
+  "Тут только 3 магазина. Если дополнения нет в наличии, посмотрите его на Озон, Wildberries или Авито.";
 
 export function ProductDetailPage() {
   const { productId } = useParams();
@@ -60,6 +65,12 @@ export function ProductDetailPage() {
     [stockStatus, stock, locationsById, regionNames],
   );
 
+  const onlineOffers = useMemo(
+    () =>
+      stockStatus === "ready" ? getOnlineOffers(stock, locationsById) : [],
+    [stockStatus, stock, locationsById],
+  );
+
   const filteredCities = useMemo(() => {
     const normalized = cityQuery.trim().toLowerCase();
     if (!normalized) return cities;
@@ -80,6 +91,12 @@ export function ProductDetailPage() {
   }
 
   const available = isAvailable(product);
+  const statusSummary =
+    stockStatus === "loading"
+      ? "Загрузка наличия…"
+      : available
+        ? summarizeAvailability(cities.length, onlineOffers.length)
+        : "Нет в наличии";
 
   return (
     <div className="page page--detail">
@@ -102,11 +119,7 @@ export function ProductDetailPage() {
           <p
             className={`product-card__status${available ? " is-available" : " is-unavailable"}`}
           >
-            {stockStatus === "loading"
-              ? "Загрузка наличия…"
-              : available
-                ? `Есть в ${cities.length} ${pluralCities(cities.length)}`
-                : "Нет в наличии в магазинах"}
+            {statusSummary}
           </p>
           <a
             className="detail__external"
@@ -114,15 +127,17 @@ export function ProductDetailPage() {
             target="_blank"
             rel="noreferrer"
           >
-            Открыть на Hobby Games
+            {externalLinkLabel(product.url)}
           </a>
         </div>
       </article>
 
+      <p className="detail__disclaimer">{DISCLAIMER}</p>
+
       {stockStatus === "loading" && (
         <div className="detail-loader" role="status" aria-live="polite">
           <div className="loader__spinner" aria-hidden />
-          <p className="state">Загрузка магазинов…</p>
+          <p className="state">Загрузка наличия…</p>
         </div>
       )}
 
@@ -130,9 +145,37 @@ export function ProductDetailPage() {
         <p className="state state--error">{stockError}</p>
       )}
 
+      {stockStatus === "ready" && onlineOffers.length > 0 ? (
+        <section className="availability availability--online">
+          <h2 className="availability__title">Онлайн</h2>
+          <ul className="online-list">
+            {onlineOffers.map((offer) => (
+              <li key={offer.location.id} className="online-row">
+                <div className="online-row__info">
+                  <p className="online-row__name">{offer.location.name}</p>
+                  <p className="online-row__status">
+                    {formatStockLabel(offer.status, offer.location)}
+                  </p>
+                </div>
+                {offer.url ? (
+                  <a
+                    className="detail__external online-row__link"
+                    href={offer.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {onlineLinkLabel(offer.location.source, offer.location.name)}
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {stockStatus === "ready" && cities.length > 0 ? (
         <section className="availability">
-          <h2 className="availability__title">Где есть в наличии</h2>
+          <h2 className="availability__title">Магазины Hobby Games</h2>
           <label className="search availability__search">
             <span className="visually-hidden">Фильтр по городу</span>
             <input
@@ -221,11 +264,45 @@ export function ProductDetailPage() {
         </section>
       ) : null}
 
-      {stockStatus === "ready" && cities.length === 0 ? (
-        <p className="state">Сейчас товар недоступен ни в одном магазине.</p>
+      {stockStatus === "ready" &&
+      cities.length === 0 &&
+      onlineOffers.length === 0 ? (
+        <p className="state">Сейчас товар нигде не найден в наличии.</p>
       ) : null}
     </div>
   );
+}
+
+function summarizeAvailability(cityCount: number, onlineCount: number): string {
+  const parts: string[] = [];
+  if (cityCount > 0) {
+    parts.push(`в ${cityCount} ${pluralCities(cityCount)}`);
+  }
+  if (onlineCount > 0) {
+    parts.push("онлайн");
+  }
+  return parts.length > 0 ? `Есть ${parts.join(" и ")}` : "В наличии";
+}
+
+function externalLinkLabel(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    if (host.includes("hobbygames")) return "Открыть на Hobby Games";
+    if (host.includes("lavkaigr")) return "Открыть в Лавке игр";
+    if (host.includes("gaga.ru")) return "Открыть на GaGa";
+  } catch {
+    // ignore
+  }
+  return "Открыть на сайте";
+}
+
+function onlineLinkLabel(
+  source: string | undefined,
+  name: string,
+): string {
+  if (source === "lavka") return "Открыть в Лавке игр";
+  if (source === "gaga") return "Открыть на GaGa";
+  return `Открыть в ${name}`;
 }
 
 function pluralCities(n: number): string {
