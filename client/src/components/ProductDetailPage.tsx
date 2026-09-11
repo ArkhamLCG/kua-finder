@@ -214,9 +214,22 @@ export function ProductDetailPage() {
                     >
                       <h3 className="city-block__name">
                         <span className="city-block__chevron" aria-hidden />
-                        {city.regionName}
-                        <span className="city-block__count">
-                          {city.stores.length}
+                        <span className="city-block__title">
+                          {city.regionName}
+                          {city.stores.length > 1 ? (
+                            <span className="city-block__stores">
+                              {city.stores.length}{" "}
+                              {pluralStores(city.stores.length)}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="city-block__qty">
+                          {formatQuantity(
+                            city.stores.reduce(
+                              (sum, store) => sum + Math.max(0, store.status),
+                              0,
+                            ),
+                          )}
                         </span>
                       </h3>
                     </button>
@@ -311,6 +324,16 @@ function pluralCities(n: number): string {
     return "городах";
   }
   return "городах";
+}
+
+function pluralStores(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "магазин";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return "магазина";
+  }
+  return "магазинов";
 }
 
 function PhoneIcon() {

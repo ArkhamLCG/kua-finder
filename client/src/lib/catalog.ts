@@ -21,13 +21,7 @@ export function isInStock(status: number): boolean {
 /** HobbyGames stock `status` is the piece count (0 = out of stock). */
 export function formatQuantity(status: number): string {
   if (status <= 0) return "Нет в наличии";
-  const mod10 = status % 10;
-  const mod100 = status % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${status} штука`;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-    return `${status} штуки`;
-  }
-  return `${status} штук`;
+  return `${status} шт.`;
 }
 
 export function formatStockLabel(
