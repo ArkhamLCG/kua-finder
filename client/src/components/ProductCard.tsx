@@ -43,6 +43,8 @@ export function ProductCard({
       regionId == null
         ? `${storeCount} ${pluralCities(storeCount)}`
         : `${storeCount} ${pluralStores(storeCount)}`;
+  } else if (badges.length > 0) {
+    statusText = "Онлайн-доставка";
   }
 
   const showSources = badges.length > 1;
