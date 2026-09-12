@@ -6,12 +6,10 @@ import {
   STOCK_ITEM_SELECTOR,
   STOCK_STATUS_SELECTOR,
   STOCK_TITLE_SELECTOR,
-} from "../../../config.js";
+} from "../../../../config.js";
 import { parseRegions } from "../region/region-parser.js";
 
-const HOST = new URL(CATEGORY_URL).origin;
-const STOCK_URL = `${HOST}/?route=common/blocks/index`;
-const SET_REGION_URL = `${HOST}/?route=lib/common/setRegion`;
+const DEFAULT_ORIGIN = new URL(CATEGORY_URL).origin;
 
 export type StockLocation = {
   name: string;
@@ -33,6 +31,18 @@ export type ParsedProductStockAll = {
   regions: ParsedProductStock[];
 };
 
+export type ParseProductOptions = {
+  /** HobbyGames site origin (ru / by / kz). Defaults to CATEGORY_URL host. */
+  origin?: string;
+};
+
+function stockUrls(origin: string) {
+  return {
+    stock: `${origin}/?route=common/blocks/index`,
+    setRegion: `${origin}/?route=lib/common/setRegion`,
+  };
+}
+
 function parseStockHtml(html: string): StockLocation[] {
   const $ = cheerio.load(html);
 
@@ -45,7 +55,11 @@ function parseStockHtml(html: string): StockLocation[] {
 
       return {
         name: item.find(STOCK_TITLE_SELECTOR).text().replace(/\s+/g, " ").trim(),
-        address: item.find(STOCK_ADDRESS_SELECTOR).text().replace(/\s+/g, " ").trim(),
+        address: item
+          .find(STOCK_ADDRESS_SELECTOR)
+          .text()
+          .replace(/\s+/g, " ")
+          .trim(),
         status,
         statusText: statusEl.attr("title") ?? "",
         delivery: item.hasClass(STOCK_DELIVERY_CLASS),
@@ -55,11 +69,16 @@ function parseStockHtml(html: string): StockLocation[] {
     .filter((location) => location.name.length > 0);
 }
 
-async function sessionForRegion(regionId: number, tries = 3): Promise<string> {
+async function sessionForRegion(
+  origin: string,
+  regionId: number,
+  tries = 3,
+): Promise<string> {
+  const { setRegion } = stockUrls(origin);
   let lastError: Error | undefined;
 
   for (let attempt = 1; attempt <= tries; attempt += 1) {
-    const res = await fetch(SET_REGION_URL, {
+    const res = await fetch(setRegion, {
       method: "POST",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
@@ -85,17 +104,19 @@ async function sessionForRegion(regionId: number, tries = 3): Promise<string> {
 export async function parseProduct(
   id: number,
   regionId?: number,
+  options: ParseProductOptions = {},
 ): Promise<ParsedProductStock> {
+  const origin = options.origin ?? DEFAULT_ORIGIN;
+  const { stock: stockUrl } = stockUrls(origin);
   const headers: Record<string, string> = { accept: "application/json" };
 
   if (regionId != null) {
-    headers.cookie = await sessionForRegion(regionId);
+    headers.cookie = await sessionForRegion(origin, regionId);
   }
 
-  const res = await fetch(
-    `${STOCK_URL}&blocks[]=stock&product_id=${id}`,
-    { headers },
-  );
+  const res = await fetch(`${stockUrl}&blocks[]=stock&product_id=${id}`, {
+    headers,
+  });
 
   if (!res.ok) {
     throw new Error(`Failed to fetch stock for ${id}: ${res.status}`);
@@ -158,6 +179,7 @@ export async function parseProductAll(
   concurrency = 8,
   regions?: Awaited<ReturnType<typeof parseRegions>>,
   onProgress?: (done: number, total: number) => void,
+  options: ParseProductOptions = {},
 ): Promise<ParsedProductStockAll> {
   const regionList = regions ?? (await parseRegions());
   const stocks = await mapPool(
@@ -165,7 +187,7 @@ export async function parseProductAll(
     concurrency,
     async (region) => {
       try {
-        const stock = await parseProduct(id, region.id);
+        const stock = await parseProduct(id, region.id, options);
         return {
           ...stock,
           regionName: region.name,
@@ -184,8 +206,6 @@ export async function parseProductAll(
 
   return {
     id,
-    regions: stocks.sort(
-      (a, b) => (a.regionId ?? 0) - (b.regionId ?? 0),
-    ),
+    regions: stocks.sort((a, b) => (a.regionId ?? 0) - (b.regionId ?? 0)),
   };
 }

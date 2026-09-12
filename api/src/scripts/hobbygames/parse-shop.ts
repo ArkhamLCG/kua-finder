@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { parseShops } from "../services/parse/shop/shop-parser.js";
+import { parseShops } from "../../services/parse/hobbygames/shop/shop-parser.js";
 
 const shops = await parseShops();
 

@@ -2,8 +2,11 @@ import type { CatalogSource } from "../types";
 
 const FAVICONS: Record<CatalogSource, string> = {
   hobbygames: `${import.meta.env.BASE_URL}retailers/hobbygames.png`,
+  hobbygames_by: `${import.meta.env.BASE_URL}retailers/hobbygames_by.png`,
+  hobbygames_kz: `${import.meta.env.BASE_URL}retailers/hobbygames_kz.png`,
   lavka: `${import.meta.env.BASE_URL}retailers/lavka.png`,
   gaga: `${import.meta.env.BASE_URL}retailers/gaga.png`,
+  znaemigraem: `${import.meta.env.BASE_URL}retailers/znaemigraem.png`,
 };
 
 type Props = {

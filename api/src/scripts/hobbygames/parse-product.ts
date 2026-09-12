@@ -3,7 +3,7 @@ import path from "node:path";
 import {
   parseProduct,
   parseProductAll,
-} from "../services/parse/product/product-parser.js";
+} from "../../services/parse/hobbygames/product/product-parser.js";
 
 const id = Number(process.argv[2]);
 const regionArg = process.argv[3];

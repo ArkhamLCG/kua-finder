@@ -1,7 +1,5 @@
-import { CATEGORY_URL } from "../../../config.js";
+import { CATEGORY_URL } from "../../../../config.js";
 import { MAP_PATH } from "./config.js";
-
-const MAP_URL = `${new URL(CATEGORY_URL).origin}${MAP_PATH}`;
 
 export type ParsedRegion = {
   id: number;
@@ -25,8 +23,11 @@ function regionName(point: MapPoint): string {
   return (match?.[1] ?? point.name).trim();
 }
 
-export async function parseRegions(): Promise<ParsedRegion[]> {
-  const res = await fetch(MAP_URL, {
+export async function parseRegions(
+  origin = new URL(CATEGORY_URL).origin,
+): Promise<ParsedRegion[]> {
+  const mapUrl = `${origin}${MAP_PATH}`;
+  const res = await fetch(mapUrl, {
     headers: { accept: "application/json" },
   });
 

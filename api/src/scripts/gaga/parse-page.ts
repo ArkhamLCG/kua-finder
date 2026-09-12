@@ -1,12 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { LAVKA_CATEGORY_URL } from "../services/parse/lavka/config.js";
-import { parseLavkaPage } from "../services/parse/lavka/page-parser.js";
+import { GAGA_CATEGORY_URL } from "../../services/parse/gaga/config.js";
+import { parseGagaPage } from "../../services/parse/gaga/page-parser.js";
 
-const url = process.argv[2] ?? LAVKA_CATEGORY_URL;
-const products = await parseLavkaPage(url);
+const url = process.argv[2] ?? GAGA_CATEGORY_URL;
+const products = await parseGagaPage(url);
 
-const outDir = path.resolve("dist/lavka");
+const outDir = path.resolve("dist/gaga");
 const outFile = path.join(outDir, "products.json");
 
 await mkdir(outDir, { recursive: true });
@@ -15,7 +15,7 @@ await writeFile(
   JSON.stringify(
     {
       last_updated: new Date().toISOString(),
-      source: "lavka",
+      source: "gaga",
       products,
     },
     null,
@@ -25,5 +25,5 @@ await writeFile(
 
 const available = products.filter((p) => p.available).length;
 console.log(
-  `Saved ${products.length} lavka products (${available} available) → ${outFile}`,
+  `Saved ${products.length} gaga products (${available} available) → ${outFile}`,
 );

@@ -1,22 +1,26 @@
 import type {
-  CatalogLocation,
   CatalogProduct,
-  CatalogRegion,
+  CatalogRates,
   CatalogSource,
-  CityAvailability,
-  OnlineOffer,
+  Country,
+  Currency,
+  ExchangeRate,
+  ListPrice,
+  OnlineRetailerSource,
   ProductOnlineOffer,
   ProductStockDetail,
-  ProductStockItem,
   ProductsCatalog,
   RetailerBadge,
-  StoreAvailability,
 } from "../types";
 import type { LoadProgress } from "./progress";
 
-export function isInStock(status: number): boolean {
-  return status > 0;
-}
+const ONLINE_SOURCES: OnlineRetailerSource[] = [
+  "lavka",
+  "gaga",
+  "znaemigraem",
+  "hobbygames_by",
+  "hobbygames_kz",
+];
 
 /** HobbyGames stock `status` is the piece count (0 = out of stock). */
 export function formatQuantity(status: number): string {
@@ -24,148 +28,141 @@ export function formatQuantity(status: number): string {
   return `${status} шт.`;
 }
 
-export function formatStockLabel(
-  status: number,
-  location?: CatalogLocation,
-): string {
-  if (location?.delivery) {
+export function formatStockLabel(status: number, delivery = false): string {
+  if (delivery) {
     return status > 0 ? "В наличии" : "Нет в наличии";
   }
   return formatQuantity(status);
 }
 
-function extractCityFromStoreName(name: string): string | null {
-  const match = /[–—-]\s*([^,]+)/.exec(name);
-  const city = match?.[1]?.trim();
-  return city && city.length > 0 ? city : null;
+function convertToRub(
+  amount: number,
+  rate: ExchangeRate | undefined,
+): number | null {
+  if (!rate || rate.nominal <= 0) return null;
+  return Math.round((amount * rate.value) / rate.nominal);
 }
 
-function locationIdentity(location: CatalogLocation): string {
-  if (location.delivery) return `d:${location.regionId}:${location.name}`;
-  return `s:${location.name}|${location.address}`;
+export function formatPrice(
+  price: number,
+  currency: Currency = "RUB",
+): string {
+  const fractionDigits = currency === "BYN" ? 2 : 0;
+  return new Intl.NumberFormat("ru-RU", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(price);
 }
 
-export function resolveLocationRegionId(
-  location: CatalogLocation,
-  regionNames: Map<number, string>,
-): number {
-  if (location.delivery) return location.regionId;
-
-  const city = extractCityFromStoreName(location.name);
-  if (!city) return location.regionId;
-
-  for (const [id, name] of regionNames) {
-    if (name === city) return id;
+export function formatListPrice(listPrice: ListPrice): string {
+  if (listPrice.currency === "RUB") {
+    return formatPrice(listPrice.amount, "RUB");
   }
-  for (const [id, name] of regionNames) {
-    if (city.includes(name) || name.includes(city)) return id;
-  }
-  return location.regionId;
+  const native = formatPrice(listPrice.amount, listPrice.currency);
+  if (listPrice.approxRub == null) return native;
+  return `${native} ≈ ${formatPrice(listPrice.approxRub, "RUB")}`;
 }
 
-function storeLocationIds(
+export function getListPrice(
   product: CatalogProduct,
-  locationsById: Map<number, CatalogLocation>,
-  regionNames: Map<number, string>,
-  regionId: number | null = null,
-): number[] {
-  const seen = new Set<string>();
-  const ids: number[] = [];
-
-  for (const locationId of product.availableLocationIds) {
-    const location = locationsById.get(locationId);
-    if (!location || location.delivery) continue;
-    if (
-      regionId != null &&
-      resolveLocationRegionId(location, regionNames) !== regionId
-    ) {
-      continue;
-    }
-
-    const key = locationIdentity(location);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    ids.push(locationId);
+  rates: CatalogRates | undefined,
+): ListPrice {
+  if (
+    product.availability?.hasRub ??
+    (product.currency == null || product.currency === "RUB")
+  ) {
+    const rubOffer = product.priceOffers?.find((o) => o.currency === "RUB");
+    return {
+      amount:
+        product.currency === "RUB" || product.currency == null
+          ? product.price
+          : (rubOffer?.amount ?? product.price),
+      currency: "RUB",
+      approxRub: null,
+    };
   }
 
-  return ids;
-}
+  const foreign =
+    product.priceOffers?.find(
+      (offer) => offer.currency === "BYN" || offer.currency === "KZT",
+    ) ?? null;
 
-function isRetailerOnline(location: CatalogLocation): boolean {
-  return (
-    location.delivery &&
-    (location.source === "lavka" || location.source === "gaga")
-  );
-}
-
-export function productHasOnline(
-  product: CatalogProduct,
-  locationsById: Map<number, CatalogLocation>,
-): boolean {
-  if ((product.onlineOffers ?? []).some((offer) => Boolean(offer.url))) {
-    return true;
-  }
-  return product.availableLocationIds.some((locationId) => {
-    const location = locationsById.get(locationId);
-    return location != null && isRetailerOnline(location);
-  });
-}
-
-export function productHasStock(
-  product: CatalogProduct,
-  locationsById: Map<number, CatalogLocation>,
-  regionId: number | null = null,
-  regionNames: Map<number, string> = new Map(),
-): boolean {
-  if (productHasOnline(product, locationsById)) return true;
-  return (
-    storeLocationIds(product, locationsById, regionNames, regionId).length > 0
-  );
-}
-
-export function getOnlineOffers(
-  stock: ProductStockItem[],
-  locationsById: Map<number, CatalogLocation>,
-): OnlineOffer[] {
-  const offers: OnlineOffer[] = [];
-  const seen = new Set<number>();
-
-  for (const item of stock) {
-    if (!isInStock(item.status)) continue;
-    const location = locationsById.get(item.locationId);
-    if (!location || !isRetailerOnline(location) || seen.has(location.id)) {
-      continue;
-    }
-    seen.add(location.id);
-    offers.push({
-      location,
-      status: item.status,
-      statusText: item.statusText,
-      url: item.url ?? null,
-    });
+  if (foreign) {
+    const rate = foreign.currency === "BYN" ? rates?.BYN : rates?.KZT;
+    return {
+      amount: foreign.amount,
+      currency: foreign.currency,
+      approxRub: convertToRub(foreign.amount, rate),
+    };
   }
 
-  return offers.sort((a, b) =>
-    a.location.name.localeCompare(b.location.name, "ru"),
-  );
+  const currency = product.currency ?? "RUB";
+  if (currency === "BYN" || currency === "KZT") {
+    const rate = currency === "BYN" ? rates?.BYN : rates?.KZT;
+    return {
+      amount: product.price,
+      currency,
+      approxRub: convertToRub(product.price, rate),
+    };
+  }
+
+  return { amount: product.price, currency: "RUB", approxRub: null };
 }
 
 const RETAILER_LABELS: Record<CatalogSource, string> = {
   hobbygames: "Hobby Games",
+  hobbygames_by: "Hobby Games BY",
+  hobbygames_kz: "Hobby Games KZ",
   lavka: "Лавка игр",
   gaga: "GaGa",
+  znaemigraem: "Знаем Играем",
 };
+
+export function productHasStock(
+  product: CatalogProduct,
+  regionId: number | null = null,
+  country: Country | null = null,
+): boolean {
+  const availability = product.availability;
+  if (!availability) {
+    return (product.onlineOffers?.length ?? 0) > 0;
+  }
+
+  const onlineOk =
+    country == null
+      ? availability.onlineCountries.length > 0
+      : availability.onlineCountries.includes(country);
+  if (onlineOk) return true;
+
+  if (regionId != null) {
+    return (availability.storeCountByRegion[String(regionId)] ?? 0) > 0;
+  }
+
+  if (country != null) {
+    return (availability.storeCountByCountry[country] ?? 0) > 0;
+  }
+
+  return (
+    availability.regionIds.length > 0 || availability.onlineCountries.length > 0
+  );
+}
 
 export function getRetailerBadges(
   product: CatalogProduct,
-  locationsById: Map<number, CatalogLocation>,
-  regionNames: Map<number, string> = new Map(),
   regionId: number | null = null,
+  country: Country | null = null,
 ): RetailerBadge[] {
   const badges: RetailerBadge[] = [];
+  const availability = product.availability;
 
   const hasHobbyGames =
-    storeLocationIds(product, locationsById, regionNames, regionId).length > 0;
+    country == null || country === "RU"
+      ? regionId != null
+        ? (availability?.storeCountByRegion[String(regionId)] ?? 0) > 0
+        : (availability?.storeCountByCountry?.RU ?? 0) > 0
+      : false;
 
   if (hasHobbyGames && product.url) {
     badges.push({
@@ -178,10 +175,23 @@ export function getRetailerBadges(
 
   const bySource = new Map<ProductOnlineOffer["source"], string>();
   for (const offer of product.onlineOffers ?? []) {
-    if (offer.url) bySource.set(offer.source, offer.url);
+    if (!offer.url) continue;
+    if (country != null) {
+      if (offer.source === "hobbygames_by" && country !== "BY") continue;
+      if (offer.source === "hobbygames_kz" && country !== "KZ") continue;
+      if (
+        (offer.source === "lavka" ||
+          offer.source === "gaga" ||
+          offer.source === "znaemigraem") &&
+        country !== "RU"
+      ) {
+        continue;
+      }
+    }
+    bySource.set(offer.source, offer.url);
   }
 
-  for (const source of ["lavka", "gaga"] as const) {
+  for (const source of ONLINE_SOURCES) {
     const url = bySource.get(source);
     if (!url) continue;
     badges.push({
@@ -197,49 +207,38 @@ export function getRetailerBadges(
 
 export function countAvailableStores(
   product: CatalogProduct,
-  locationsById: Map<number, CatalogLocation>,
   regionId: number | null = null,
-  regionNames: Map<number, string> = new Map(),
+  country: Country | null = null,
 ): number {
-  return storeLocationIds(product, locationsById, regionNames, regionId)
-    .length;
+  const availability = product.availability;
+  if (!availability) return 0;
+
+  if (regionId != null) {
+    return availability.storeCountByRegion[String(regionId)] ?? 0;
+  }
+
+  if (country != null) {
+    return availability.storeCountByCountry[country] ?? 0;
+  }
+
+  return Object.values(availability.storeCountByRegion).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
 }
 
 export function countAvailableCities(
   product: CatalogProduct,
-  locationsById: Map<number, CatalogLocation>,
-  regionNames: Map<number, string> = new Map(),
+  country: Country | null = null,
 ): number {
-  const cities = new Set<number>();
-  for (const locationId of storeLocationIds(
-    product,
-    locationsById,
-    regionNames,
-  )) {
-    const location = locationsById.get(locationId);
-    if (location) {
-      cities.add(resolveLocationRegionId(location, regionNames));
-    }
-  }
-  return cities.size;
-}
+  const availability = product.availability;
+  if (!availability) return 0;
 
-export function listCities(
-  locations: CatalogLocation[],
-  regionNames: Map<number, string>,
-): { id: number; name: string }[] {
-  const ids = new Set<number>();
-  for (const location of locations) {
-    if (location.delivery) continue;
-    ids.add(resolveLocationRegionId(location, regionNames));
+  if (country != null) {
+    return availability.cityCountByCountry[country] ?? 0;
   }
 
-  return [...ids]
-    .map((id) => ({
-      id,
-      name: regionNames.get(id) ?? `Регион ${id}`,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  return availability.regionIds.length;
 }
 
 export function filterProducts(
@@ -253,14 +252,6 @@ export function filterProducts(
   );
 }
 
-export function formatPrice(price: number): string {
-  return new Intl.NumberFormat("ru-RU", {
-    style: "currency",
-    currency: "RUB",
-    maximumFractionDigits: 0,
-  }).format(price);
-}
-
 export function formatUpdatedAt(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
@@ -268,65 +259,6 @@ export function formatUpdatedAt(iso: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
-}
-
-export function buildLocationMap(
-  locations: CatalogLocation[],
-): Map<number, CatalogLocation> {
-  return new Map(locations.map((location) => [location.id, location]));
-}
-
-export function buildRegionMap(
-  regions: CatalogRegion[],
-): Map<number, string> {
-  return new Map(regions.map((region) => [region.id, region.name]));
-}
-
-export function getAvailableCities(
-  stock: ProductStockItem[],
-  locationsById: Map<number, CatalogLocation>,
-  regionNames: Map<number, string>,
-): CityAvailability[] {
-  const byRegion = new Map<number, Map<string, StoreAvailability>>();
-
-  for (const item of stock) {
-    if (!isInStock(item.status)) continue;
-    const location = locationsById.get(item.locationId);
-    if (!location || location.delivery) continue;
-
-    const regionId = resolveLocationRegionId(location, regionNames);
-    const key = locationIdentity(location);
-    const stores = byRegion.get(regionId) ?? new Map();
-    const prev = stores.get(key);
-
-    if (!prev || item.status > prev.status) {
-      // Prefer the location record whose regionId already matches the city.
-      const preferred =
-        prev && prev.location.regionId === regionId
-          ? prev.location
-          : location.regionId === regionId
-            ? location
-            : (prev?.location ?? location);
-
-      stores.set(key, {
-        location: preferred,
-        status: item.status,
-        statusText: item.statusText,
-      });
-    }
-
-    byRegion.set(regionId, stores);
-  }
-
-  return [...byRegion.entries()]
-    .map(([regionId, stores]) => ({
-      regionId,
-      regionName: regionNames.get(regionId) ?? `Регион ${regionId}`,
-      stores: [...stores.values()].sort((a, b) =>
-        a.location.name.localeCompare(b.location.name, "ru"),
-      ),
-    }))
-    .sort((a, b) => a.regionName.localeCompare(b.regionName, "ru"));
 }
 
 function paintFrame(): Promise<void> {
@@ -369,21 +301,15 @@ async function readResponseText(
 function normalizeCatalog(raw: ProductsCatalog): ProductsCatalog {
   return {
     last_updated: raw.last_updated,
-    locations: (raw.locations ?? []).map((location) => ({
-      id: location.id,
-      regionId: location.regionId,
-      name: location.name,
-      address: location.address,
-      phone: location.phone ?? "",
-      delivery: location.delivery,
-      source: location.source,
-    })),
+    rates: raw.rates,
+    cities: Array.isArray(raw.cities) ? raw.cities : [],
     products: (raw.products ?? []).map((product) => ({
       id: product.id,
       price: product.price,
       name: product.name,
       image: product.image,
       url: product.url,
+      currency: product.currency,
       availableLocationIds: Array.isArray(product.availableLocationIds)
         ? product.availableLocationIds
         : [],
@@ -391,7 +317,7 @@ function normalizeCatalog(raw: ProductsCatalog): ProductsCatalog {
         ? product.onlineOffers
             .filter(
               (offer) =>
-                (offer.source === "lavka" || offer.source === "gaga") &&
+                ONLINE_SOURCES.includes(offer.source) &&
                 typeof offer.url === "string" &&
                 offer.url.length > 0,
             )
@@ -400,16 +326,22 @@ function normalizeCatalog(raw: ProductsCatalog): ProductsCatalog {
               url: offer.url,
             }))
         : [],
+      priceOffers: Array.isArray(product.priceOffers)
+        ? product.priceOffers.filter(
+            (offer) =>
+              ONLINE_SOURCES.includes(offer.source) &&
+              typeof offer.amount === "number" &&
+              typeof offer.url === "string",
+          )
+        : [],
+      availability: product.availability,
     })),
   };
 }
 
 export async function loadCatalog(
   onProgress?: (progress: LoadProgress) => void,
-): Promise<{
-  catalog: ProductsCatalog;
-  regions: CatalogRegion[];
-}> {
+): Promise<ProductsCatalog> {
   const dataBase = import.meta.env.BASE_URL;
   onProgress?.({
     phase: "download",
@@ -418,23 +350,13 @@ export async function loadCatalog(
     totalBytes: null,
   });
 
-  const [productsRes, regionsRes] = await Promise.all([
-    fetch(`${dataBase}data/products.json`),
-    fetch(`${dataBase}data/regions.json`),
-  ]);
+  const productsRes = await fetch(`${dataBase}data/products.json`);
 
   if (!productsRes.ok) {
     throw new Error(
       `Не удалось загрузить products.json (${productsRes.status}). Запустите copy-data.`,
     );
   }
-  if (!regionsRes.ok) {
-    throw new Error(
-      `Не удалось загрузить regions.json (${regionsRes.status}). Запустите copy-data.`,
-    );
-  }
-
-  const regionsPromise = regionsRes.json() as Promise<CatalogRegion[]>;
 
   const productsText = await readResponseText(productsRes, (loaded, total) => {
     onProgress?.({
@@ -444,8 +366,6 @@ export async function loadCatalog(
       totalBytes: total,
     });
   });
-
-  const regions = await regionsPromise;
 
   onProgress?.({
     phase: "parse",
@@ -472,7 +392,7 @@ export async function loadCatalog(
     totalBytes: productsText.length,
   });
 
-  return { catalog, regions };
+  return catalog;
 }
 
 export async function loadProductStock(
@@ -482,8 +402,17 @@ export async function loadProductStock(
   const res = await fetch(`${dataBase}data/products/${productId}.json`);
   if (!res.ok) {
     throw new Error(
-      `Не удалось загрузить наличие/${productId}.json (${res.status})`,
+      `Не удалось загрузить stock/${productId}.json (${res.status})`,
     );
   }
-  return (await res.json()) as ProductStockDetail;
+  const raw = (await res.json()) as ProductStockDetail & {
+    countries?: ProductStockDetail["countries"];
+    online?: ProductStockDetail["online"];
+  };
+  return {
+    id: raw.id,
+    last_updated: raw.last_updated,
+    countries: Array.isArray(raw.countries) ? raw.countries : [],
+    online: Array.isArray(raw.online) ? raw.online : [],
+  };
 }

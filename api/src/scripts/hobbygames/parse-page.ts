@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { CATEGORY_URL } from "../config.js";
-import { parsePage } from "../services/parse/page/page-parser.js";
+import { CATEGORY_URL } from "../../config.js";
+import { parsePage } from "../../services/parse/hobbygames/page/page-parser.js";
 
 const url = process.argv[2] ?? CATEGORY_URL;
 const products = await parsePage(url);

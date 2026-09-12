@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { parseRegions } from "../services/parse/region/region-parser.js";
+import { parseRegions } from "../../services/parse/hobbygames/region/region-parser.js";
 
 const regions = await parseRegions();
 

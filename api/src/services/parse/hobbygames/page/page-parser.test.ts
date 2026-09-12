@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CATEGORY_URL } from "../../../config.js";
+import { CATEGORY_URL } from "../../../../config.js";
 import { parsePage } from "./page-parser.js";
 
 test("parsePage returns products with id, price, name, image, url", async () => {

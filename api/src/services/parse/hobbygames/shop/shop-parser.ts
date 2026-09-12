@@ -1,8 +1,5 @@
 import * as cheerio from "cheerio";
-import { CATEGORY_URL } from "../../../config.js";
-
-const HOST = new URL(CATEGORY_URL).origin;
-const SHOPS_MAP_URL = `${HOST}/?route=information/contact/map`;
+import { CATEGORY_URL } from "../../../../config.js";
 
 export type ParsedShop = {
   id: number;
@@ -28,8 +25,15 @@ function parsePhoneFromContent(html: string): string {
   return $(".stock-phone").first().text().replace(/\s+/g, " ").trim();
 }
 
-export async function parseShops(): Promise<ParsedShop[]> {
-  const res = await fetch(SHOPS_MAP_URL, {
+function plainText(value: string): string {
+  return cheerio.load(`<div>${value}</div>`)("div").text().replace(/\s+/g, " ").trim();
+}
+
+export async function parseShops(
+  origin = new URL(CATEGORY_URL).origin,
+): Promise<ParsedShop[]> {
+  const mapUrl = `${origin}/?route=information/contact/map`;
+  const res = await fetch(mapUrl, {
     headers: { accept: "application/json" },
   });
   if (!res.ok) {
@@ -48,7 +52,7 @@ export async function parseShops(): Promise<ParsedShop[]> {
     shops.push({
       id: Number(point.id ?? 0),
       name,
-      address: (point.hidden?.address ?? "").replace(/\s+/g, " ").trim(),
+      address: plainText(point.hidden?.address ?? ""),
       phone: parsePhoneFromContent(point.properties?.content ?? ""),
     });
   }

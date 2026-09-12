@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { resolveRegionId } from "../services/parse/region/region-id.js";
+import { resolveRegionId } from "../services/parse/hobbygames/region/region-id.js";
 
 type CatalogLocation = {
   id: number;

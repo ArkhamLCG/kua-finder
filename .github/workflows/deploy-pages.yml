@@ -3,8 +3,8 @@ name: Deploy GitHub Pages
 on:
   workflow_dispatch:
   schedule:
-    # Twice daily: 03:00 and 15:00 UTC (06:00 / 18:00 MSK)
-    - cron: "0 3,15 * * *"
+    # Once daily: 03:00 UTC (06:00 MSK)
+    - cron: "0 3 * * *"
 
 permissions:
   contents: read
