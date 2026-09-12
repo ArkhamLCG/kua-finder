@@ -157,21 +157,12 @@ export function getRetailerBadges(
   const badges: RetailerBadge[] = [];
   const availability = product.availability;
 
-  const hasHobbyGames =
+  const hasHobbyGamesRu =
     country == null || country === "RU"
       ? regionId != null
         ? (availability?.storeCountByRegion[String(regionId)] ?? 0) > 0
         : (availability?.storeCountByCountry?.RU ?? 0) > 0
       : false;
-
-  if (hasHobbyGames && product.url) {
-    badges.push({
-      source: "hobbygames",
-      name: RETAILER_LABELS.hobbygames,
-      count: 1,
-      url: product.url,
-    });
-  }
 
   const bySource = new Map<ProductOnlineOffer["source"], string>();
   for (const offer of product.onlineOffers ?? []) {
@@ -191,7 +182,23 @@ export function getRetailerBadges(
     bySource.set(offer.source, offer.url);
   }
 
+  // RU / BY / KZ HobbyGames → one badge on the small card
+  const hobbygamesUrl =
+    (hasHobbyGamesRu && product.url) ||
+    bySource.get("hobbygames_by") ||
+    bySource.get("hobbygames_kz");
+
+  if (hobbygamesUrl) {
+    badges.push({
+      source: "hobbygames",
+      name: RETAILER_LABELS.hobbygames,
+      count: 1,
+      url: hobbygamesUrl,
+    });
+  }
+
   for (const source of ONLINE_SOURCES) {
+    if (source === "hobbygames_by" || source === "hobbygames_kz") continue;
     const url = bySource.get(source);
     if (!url) continue;
     badges.push({

@@ -1,5 +1,5 @@
 import { isExcludedProductName } from "../match/exclude-name.js";
-import { normalizeName } from "../match/normalize-name.js";
+import { findMatchByName, matchKey } from "../match/normalize-name.js";
 import {
   countryForSource,
   currencyForCountry,
@@ -197,8 +197,11 @@ export async function mergeHobbygamesCountryStock(input: {
     }
 
     const availableStock = [...stockByLocation.values()];
-    const key = normalizeName(pageProduct.name);
-    const existing = key ? input.nameIndex.get(key) : undefined;
+    const existing = findMatchByName(
+      pageProduct.name,
+      input.products,
+      input.nameIndex,
+    );
 
     const upsertOffers = (product: CountryStockProduct) => {
       if (availableStock.length === 0) return;
@@ -267,6 +270,7 @@ export async function mergeHobbygamesCountryStock(input: {
       ],
     };
     input.products.push(product);
+    const key = matchKey(pageProduct.name);
     if (key) input.nameIndex.set(key, product);
     await input.saveStock(catalogId, availableStock);
   }

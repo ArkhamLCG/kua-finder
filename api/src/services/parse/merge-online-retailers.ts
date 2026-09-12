@@ -10,7 +10,7 @@ import {
   currencyForCountry,
   namespacedProductId,
 } from "./retailer-types.js";
-import { normalizeName } from "./match/normalize-name.js";
+import { findMatchByName, matchKey } from "./match/normalize-name.js";
 import { isExcludedProductName } from "./match/exclude-name.js";
 
 export type MergeLocation = {
@@ -102,8 +102,7 @@ export async function mergeOnlineRetailer(input: {
   for (const offer of retailer.products) {
     if (isExcludedProductName(offer.name)) continue;
 
-    const key = normalizeName(offer.name);
-    const existing = key ? nameIndex.get(key) : undefined;
+    const existing = findMatchByName(offer.name, input.products, nameIndex);
     const available = retailer.useAvailableFlag ? offer.available : true;
 
     if (existing) {
@@ -170,6 +169,7 @@ export async function mergeOnlineRetailer(input: {
         : [],
     };
     input.products.push(product);
+    const key = matchKey(offer.name);
     if (key) nameIndex.set(key, product);
     await input.saveStock(
       catalogId,
