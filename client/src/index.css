@@ -890,18 +890,6 @@ input {
   margin-top: 0;
 }
 
-.store-row__link {
-  display: inline-flex;
-  align-items: center;
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-
-.store-row__link:hover {
-  text-decoration: underline;
-}
-
 .availability__search {
   display: block;
   margin: 0 0 1rem;

@@ -545,27 +545,12 @@ function CityAccordionList({
 }
 
 function StoreRow({ store }: { store: AvailabilityStore }) {
-  const linkSource =
-    store.source === "hobbygames_by" || store.source === "hobbygames_kz"
-      ? store.source
-      : "hobbygames";
-
   return (
     <li className="store-row">
       <div className="store-row__info">
         <p className="store-row__name">{store.name}</p>
         {store.address ? (
           <p className="store-row__address">{store.address}</p>
-        ) : null}
-        {store.url ? (
-          <a
-            className="store-row__link"
-            href={store.url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {onlineLinkLabel(linkSource, store.name)}
-          </a>
         ) : null}
       </div>
       <div className="store-row__meta">
