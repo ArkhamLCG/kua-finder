@@ -125,6 +125,9 @@ input {
 }
 
 .site-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
   flex: 0 0 auto;
   font-family: var(--font-display);
   font-size: clamp(1.15rem, 2.2vw, 1.45rem);
@@ -133,6 +136,13 @@ input {
   line-height: 1.1;
   color: var(--ink);
   white-space: nowrap;
+}
+
+.site-header__logo {
+  width: 2.05rem;
+  height: 2.05rem;
+  flex: 0 0 auto;
+  display: block;
 }
 
 .site-header__brand:hover,
@@ -1081,7 +1091,7 @@ input {
   }
 
   .site-header__brand--panel {
-    display: block;
+    display: inline-flex;
     white-space: normal;
   }
 

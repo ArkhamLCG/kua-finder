@@ -80,7 +80,14 @@ export function SiteHeader() {
           </button>
 
           <Link to="/" className="site-header__brand site-header__brand--bar">
-            Поиск сыщиков
+            <img
+              className="site-header__logo"
+              src={`${import.meta.env.BASE_URL}logo.svg`}
+              alt=""
+              width={36}
+              height={36}
+            />
+            <span>Поиск сыщиков</span>
           </Link>
 
           <div
@@ -88,7 +95,14 @@ export function SiteHeader() {
             className="site-header__search-panel"
           >
             <Link to="/" className="site-header__brand site-header__brand--panel">
-              Поиск сыщиков
+              <img
+                className="site-header__logo"
+                src={`${import.meta.env.BASE_URL}logo.svg`}
+                alt=""
+                width={36}
+                height={36}
+              />
+              <span>Поиск сыщиков</span>
             </Link>
 
             <label className="search site-header__search">
