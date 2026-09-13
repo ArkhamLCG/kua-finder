@@ -313,6 +313,10 @@ input {
   gap: 1rem;
 }
 
+.product-grid__row {
+  padding-bottom: 1rem;
+}
+
 .product-grid-virtual {
   width: 100%;
 }
