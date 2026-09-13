@@ -43,6 +43,8 @@ jobs:
 
       - name: Build client for GitHub Pages
         run: npm run build:pages
+        env:
+          VITE_YANDEX_METRIKA_ID: ${{ secrets.VITE_YANDEX_METRIKA_ID }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -3,3 +3,7 @@ dist/
 *.log
 .DS_Store
 client/public/data/
+.env
+**/.env
+!**/.env.example
+

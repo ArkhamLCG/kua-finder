@@ -4,6 +4,7 @@ import { ProductDetailPage } from "./components/ProductDetailPage";
 import { ProductListPage } from "./components/ProductListPage";
 import { SiteFooter } from "./components/SiteFooter";
 import { SiteHeader } from "./components/SiteHeader";
+import { YandexMetrikaHits } from "./components/YandexMetrikaHits";
 import { CatalogProvider, useCatalog } from "./hooks/useCatalog";
 import { CatalogFiltersProvider } from "./hooks/useCatalogFilters";
 
@@ -52,6 +53,7 @@ export function App() {
   return (
     <CatalogProvider>
       <BrowserRouter basename={basename}>
+        <YandexMetrikaHits />
         <AppRoutes />
       </BrowserRouter>
     </CatalogProvider>
