@@ -19,7 +19,7 @@ import {
 import { parseLavkaPage } from "../services/parse/lavka/page-parser.js";
 import { parseGagaPage } from "../services/parse/gaga/page-parser.js";
 import { parseZnaemigraemPage } from "../services/parse/znaemigraem/page-parser.js";
-import { buildNameIndex } from "../services/parse/match/normalize-name.js";
+import { buildNameIndex, dedupeByMatchKey } from "../services/parse/match/normalize-name.js";
 import {
   mergeOnlineRetailer,
   onlineLocationDefaults,
@@ -155,6 +155,17 @@ try {
     ),
   );
   console.log(`   ${products.length} products (parsed page)`);
+}
+
+{
+  const before = products.length;
+  const deduped = dedupeByMatchKey(products);
+  products = deduped.products;
+  if (deduped.merges.length > 0) {
+    console.log(
+      `   deduped ${before} → ${products.length} (dropped ${deduped.merges.length} reprint/year twins)`,
+    );
+  }
 }
 
 console.log("2/5 Regions…");

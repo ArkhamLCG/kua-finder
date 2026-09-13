@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   buildNameIndex,
+  dedupeByMatchKey,
   findMatchByName,
   matchKey,
   normalizeName,
@@ -32,6 +33,33 @@ test("matchKey drops pack number markers like №6", () => {
     matchKey("Забытая эпоха No.5 Глубины Йота"),
     matchKey("Забытая эпоха Глубины Йота"),
   );
+});
+
+test("matchKey drops edition years like (2026)", () => {
+  assert.equal(
+    matchKey(
+      "Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс (2026)",
+    ),
+    matchKey("Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс"),
+  );
+});
+
+test("dedupeByMatchKey keeps title without year", () => {
+  const { products, merges } = dedupeByMatchKey([
+    {
+      id: 788433,
+      name: "Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс (2026)",
+    },
+    {
+      id: 88186,
+      name: "Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс",
+    },
+  ]);
+
+  assert.equal(products.length, 1);
+  assert.equal(products[0]?.id, 88186);
+  assert.equal(merges.length, 1);
+  assert.equal(merges[0]?.dropped.id, 788433);
 });
 
 test("findMatchByName matches across retailers", () => {

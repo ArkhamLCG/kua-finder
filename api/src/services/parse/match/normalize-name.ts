@@ -12,11 +12,68 @@ export function normalizeName(name: string): string {
 }
 
 /**
- * Pack/index markers shops insert into titles (`№6`, `No.3`, bare `5`).
- * Stripped so template wording can differ without breaking matches.
+ * Shop-specific noise: pack indexes (`№6`, `No.3`) and edition years (`2026`).
+ * Any pure number token is treated as noise so title templates can drift.
  */
 export function isNoiseToken(token: string): boolean {
   return token === "no" || token === "n" || /^(?:no|n)?\d+$/i.test(token);
+}
+
+/** Lower = better display title (prefer without edition year). */
+export function editionNoiseScore(name: string): number {
+  let score = 0;
+  if (/\(\s*(?:19|20)\d{2}\s*\)/.test(name)) score += 2;
+  if (/(?:^|[\s.,;:–—-])(?:19|20)\d{2}(?:$|[\s.,;:–—-])/.test(name)) {
+    score += 1;
+  }
+  return score;
+}
+
+export function pickPreferredProduct<T extends { id: number; name: string }>(
+  a: T,
+  b: T,
+): T {
+  const scoreA = editionNoiseScore(a.name);
+  const scoreB = editionNoiseScore(b.name);
+  if (scoreA !== scoreB) return scoreA < scoreB ? a : b;
+  return a.id >= b.id ? a : b;
+}
+
+export type DedupeMerge<T> = { kept: T; dropped: T };
+
+/** Collapse products that only differ by noise (№N, year, etc.). */
+export function dedupeByMatchKey<T extends { id: number; name: string }>(
+  items: T[],
+): { products: T[]; merges: DedupeMerge<T>[] } {
+  const byKey = new Map<string, T>();
+  const keyOrder: string[] = [];
+  const merges: DedupeMerge<T>[] = [];
+  const passthrough: T[] = [];
+
+  for (const item of items) {
+    const key = matchKey(item.name);
+    if (!key) {
+      passthrough.push(item);
+      continue;
+    }
+
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, item);
+      keyOrder.push(key);
+      continue;
+    }
+
+    const preferred = pickPreferredProduct(existing, item);
+    const dropped = preferred.id === existing.id ? item : existing;
+    byKey.set(key, preferred);
+    merges.push({ kept: preferred, dropped });
+  }
+
+  return {
+    products: [...keyOrder.map((key) => byKey.get(key)!), ...passthrough],
+    merges,
+  };
 }
 
 /** Match key: normalized title without shop-specific noise tokens. */

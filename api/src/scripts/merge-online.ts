@@ -6,6 +6,7 @@ import { parseLavkaPage } from "../services/parse/lavka/page-parser.js";
 import { parseGagaPage } from "../services/parse/gaga/page-parser.js";
 import { parseZnaemigraemPage } from "../services/parse/znaemigraem/page-parser.js";
 import { buildNameIndex } from "../services/parse/match/normalize-name.js";
+import { dedupeCatalogProducts } from "../services/parse/match/dedupe-products.js";
 import {
   mergeOnlineRetailer,
   onlineLocationDefaults,
@@ -122,6 +123,45 @@ for (const product of catalog.products) {
   product.priceOffers = [];
   product.currency = product.currency ?? "RUB";
 }
+
+{
+  const before = catalog.products.length;
+  const deduped = await dedupeCatalogProducts({
+    products: catalog.products,
+    productsDir,
+    loadStock: async (productId) => {
+      try {
+        const raw = JSON.parse(
+          await readFile(path.join(productsDir, `${productId}.json`), "utf8"),
+        ) as { stock?: ProductStockItem[] };
+        return raw.stock ?? [];
+      } catch {
+        return [];
+      }
+    },
+    saveStock: async (productId, stock) => {
+      await writeFile(
+        path.join(productsDir, `${productId}.json`),
+        JSON.stringify(
+          {
+            id: productId,
+            last_updated: new Date().toISOString(),
+            stock,
+          },
+          null,
+          2,
+        ),
+      );
+    },
+  });
+  catalog.products = deduped.products;
+  if (deduped.removed > 0) {
+    console.log(
+      `Deduped HobbyGames reprints: ${before} → ${catalog.products.length} (−${deduped.removed})`,
+    );
+  }
+}
+
 catalog.locations = (catalog.locations ?? []).filter(
   (location) =>
     location.source == null ||
