@@ -248,6 +248,46 @@ export function countAvailableCities(
   return availability.regionIds.length;
 }
 
+/** Hover list for “N городов”: cities, grouped by country when several. */
+export function listAvailabilityHoverItems(
+  product: CatalogProduct,
+  country: Country | null = null,
+): { groups: Array<{ label: string | null; items: string[] }> } {
+  const availability = product.availability;
+  if (!availability) return { groups: [] };
+
+  const cities = availability.cities ?? [];
+  const countryRows = availability.countryRows ?? [];
+
+  if (country != null) {
+    const items = cities
+      .filter((city) => city.country === country)
+      .map((city) => city.name)
+      .sort((a, b) => a.localeCompare(b, "ru"));
+    return items.length > 0 ? { groups: [{ label: null, items }] } : { groups: [] };
+  }
+
+  if (countryRows.length > 1) {
+    return {
+      groups: countryRows
+        .map((row) => ({
+          label: row.name,
+          items: cities
+            .filter((city) => city.country === row.code)
+            .map((city) => city.name)
+            .sort((a, b) => a.localeCompare(b, "ru")),
+        }))
+        .filter((group) => group.items.length > 0),
+    };
+  }
+
+  const items = cities
+    .map((city) => city.name)
+    .sort((a, b) => a.localeCompare(b, "ru"));
+
+  return items.length > 0 ? { groups: [{ label: null, items }] } : { groups: [] };
+}
+
 export function filterProducts(
   products: CatalogProduct[],
   query: string,
@@ -310,6 +350,7 @@ function normalizeCatalog(raw: ProductsCatalog): ProductsCatalog {
     last_updated: raw.last_updated,
     rates: raw.rates,
     cities: Array.isArray(raw.cities) ? raw.cities : [],
+    countries: Array.isArray(raw.countries) ? raw.countries : [],
     products: (raw.products ?? []).map((product) => ({
       id: product.id,
       price: product.price,

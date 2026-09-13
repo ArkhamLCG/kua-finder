@@ -7,13 +7,6 @@ import {
 } from "../hooks/useCatalogFilters";
 import type { Country } from "../types";
 
-const COUNTRY_OPTIONS: { value: "" | Country; label: string }[] = [
-  { value: "", label: "Все страны" },
-  { value: "RU", label: "Россия" },
-  { value: "BY", label: "Беларусь" },
-  { value: "KZ", label: "Казахстан" },
-];
-
 export function SiteHeader() {
   const { catalog } = useCatalog();
   const {
@@ -130,7 +123,7 @@ export function SiteHeader() {
                   if (isHome) syncHomeUrl(query, next);
                 }}
               />
-              <span>В наличии</span>
+              <span>В продаже</span>
             </label>
 
             {!isHome ? (
@@ -154,9 +147,10 @@ export function SiteHeader() {
                 setCountry(value ? value : null);
               }}
             >
-              {COUNTRY_OPTIONS.map((option) => (
-                <option key={option.label} value={option.value}>
-                  {option.label}
+              <option value="">Все страны</option>
+              {(catalog?.countries ?? []).map((option) => (
+                <option key={option.code} value={option.code}>
+                  {option.name}
                 </option>
               ))}
             </select>

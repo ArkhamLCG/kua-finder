@@ -5,6 +5,7 @@ import {
   formatListPrice,
   getListPrice,
   getRetailerBadges,
+  listAvailabilityHoverItems,
 } from "../lib/catalog";
 import type { CatalogProduct, CatalogRates, Country } from "../types";
 import { RetailerIcon } from "./RetailerIcon";
@@ -32,6 +33,13 @@ export function ProductCard({
   const badges = getRetailerBadges(product, regionId, country);
 
   const hasStores = storeCount > 0;
+  const showCityHover = hasStores && regionId == null && storeCount > 0;
+  const hoverItems = showCityHover
+    ? listAvailabilityHoverItems(product, country)
+    : null;
+  const hasHoverContent =
+    hoverItems != null &&
+    hoverItems.groups.some((group) => group.items.length > 0);
 
   let statusText: string | null = null;
   if (hasStores) {
@@ -71,7 +79,35 @@ export function ProductCard({
           className={`product-card__meta${available ? " is-available" : " is-unavailable"}`}
         >
           {statusText ? (
-            <span className="product-card__status">{statusText}</span>
+            hasHoverContent ? (
+              <span
+                className="product-card__status product-card__status--hoverable"
+                tabIndex={0}
+              >
+                {statusText}
+                <span className="product-card__popper" role="tooltip">
+                  {hoverItems!.groups.map((group, index) => (
+                    <span
+                      key={group.label ?? `cities-${index}`}
+                      className="product-card__popper-group"
+                    >
+                      {group.label ? (
+                        <span className="product-card__popper-title">
+                          {group.label}
+                        </span>
+                      ) : null}
+                      <ul className="product-card__popper-list">
+                        {group.items.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </span>
+                  ))}
+                </span>
+              </span>
+            ) : (
+              <span className="product-card__status">{statusText}</span>
+            )
           ) : null}
           {showSources ? (
             <ul className="product-card__retailers" aria-label="Магазины">

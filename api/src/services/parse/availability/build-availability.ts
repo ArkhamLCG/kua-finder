@@ -86,12 +86,27 @@ export type ProductAvailabilitySummary = {
   cityCountByCountry: Partial<Record<Country, number>>;
   storeCountByCountry: Partial<Record<Country, number>>;
   hasRub: boolean;
+  /** Ready city list for UI (names from regions.json). */
+  cities: CatalogCity[];
+  /** Ready country rows when product spans multiple countries. */
+  countryRows: CatalogCountryRow[];
 };
 
 export type CatalogCity = {
   id: number;
   name: string;
   country: Country;
+};
+
+export type CatalogCountryRow = {
+  code: Country;
+  name: string;
+  cityCount: number;
+};
+
+export type CatalogCountry = {
+  code: Country;
+  name: string;
 };
 
 export type BuiltAvailability = {
@@ -295,15 +310,27 @@ export function buildAvailability(input: {
   const storeCountByCountry: Partial<Record<Country, number>> = {};
   const regionIds: number[] = [];
   const physicalCountries: Country[] = [];
+  const summaryCities: CatalogCity[] = [];
+  const countryRows: CatalogCountryRow[] = [];
 
   for (const group of countries) {
     physicalCountries.push(group.country);
     cityCountByCountry[group.country] = group.cities.length;
+    countryRows.push({
+      code: group.country,
+      name: group.countryName,
+      cityCount: group.cities.length,
+    });
     let storeTotal = 0;
     for (const city of group.cities) {
       regionIds.push(city.regionId);
       storeCountByRegion[String(city.regionId)] = city.stores.length;
       storeTotal += city.stores.length;
+      summaryCities.push({
+        id: city.regionId,
+        name: city.regionName,
+        country: group.country,
+      });
     }
     storeCountByCountry[group.country] = storeTotal;
   }
@@ -331,8 +358,17 @@ export function buildAvailability(input: {
       cityCountByCountry,
       storeCountByCountry,
       hasRub,
+      cities: summaryCities,
+      countryRows,
     },
   };
+}
+
+export function buildCatalogCountries(): CatalogCountry[] {
+  return COUNTRY_ORDER.map((code) => ({
+    code,
+    name: COUNTRY_LABELS[code],
+  }));
 }
 
 export function buildCatalogCities(

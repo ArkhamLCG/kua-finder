@@ -30,6 +30,11 @@ export type CatalogCity = {
   country: Country;
 };
 
+export type CatalogCountry = {
+  code: Country;
+  name: string;
+};
+
 /** Online retailer link for list/preview (no need to load stock file). */
 export type ProductOnlineOffer = {
   source: OnlineRetailerSource;
@@ -53,6 +58,12 @@ export type ProductAvailabilitySummary = {
   cityCountByCountry: Partial<Record<Country, number>>;
   storeCountByCountry: Partial<Record<Country, number>>;
   hasRub: boolean;
+  cities: CatalogCity[];
+  countryRows: Array<{
+    code: Country;
+    name: string;
+    cityCount: number;
+  }>;
 };
 
 export type CatalogProduct = {
@@ -115,6 +126,7 @@ export type ProductStockDetail = {
 export type ProductsCatalog = {
   last_updated: string;
   rates?: CatalogRates;
+  countries: CatalogCountry[];
   cities: CatalogCity[];
   products: CatalogProduct[];
 };

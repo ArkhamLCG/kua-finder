@@ -28,6 +28,7 @@ import {
 import { enrichCatalogAvailability } from "../services/parse/availability/enrich-catalog.js";
 import type {
   CatalogCity,
+  CatalogCountry,
   ProductAvailabilitySummary,
 } from "../services/parse/availability/build-availability.js";
 import type {
@@ -71,8 +72,6 @@ export type ProductStockFile = {
   last_updated: string;
   stock: ProductStockItem[];
 };
-
-let catalogCities: CatalogCity[] = [];
 
 const CATEGORY_URL_BY =
   process.env.CATEGORY_URL_BY ??
@@ -244,6 +243,9 @@ function ensureLocation(input: {
 
 let catalogRates: CatalogRates = {};
 
+let catalogCities: CatalogCity[] = [];
+let catalogCountries: CatalogCountry[] = [];
+
 async function saveIndex(): Promise<void> {
   await writeFile(
     outFile,
@@ -251,6 +253,7 @@ async function saveIndex(): Promise<void> {
       {
         last_updated: new Date().toISOString(),
         rates: catalogRates,
+        countries: catalogCountries,
         cities: catalogCities,
         locations,
         products: result,
@@ -531,6 +534,7 @@ console.log("6/6 Enrich availability…");
 const catalogForEnrich: {
   last_updated: string;
   rates: typeof catalogRates;
+  countries?: CatalogCountry[];
   cities?: CatalogCity[];
   locations: typeof locations;
   products: typeof result;
@@ -546,6 +550,7 @@ const enrichStats = await enrichCatalogAvailability({
   productsDir,
 });
 catalogCities = catalogForEnrich.cities ?? [];
+catalogCountries = catalogForEnrich.countries ?? [];
 
 await saveIndex();
 

@@ -93,6 +93,11 @@ test("buildAvailability groups country → city → stores and online", () => {
   assert.deepEqual(built.summary.onlineCountries, ["RU"]);
   assert.equal(built.summary.hasRub, true);
   assert.equal(built.summary.storeCountByRegion["10"], 1);
+  assert.deepEqual(built.summary.cities, [
+    { id: 10, name: "Москва", country: "RU" },
+    { id: 1_000_015, name: "Минск", country: "BY" },
+  ]);
+  assert.equal(built.summary.countryRows.length, 2);
 });
 
 test("buildCatalogCities skips delivery locations", () => {

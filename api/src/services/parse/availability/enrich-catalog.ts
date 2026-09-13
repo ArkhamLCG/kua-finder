@@ -3,12 +3,14 @@ import path from "node:path";
 import {
   buildAvailability,
   buildCatalogCities,
+  buildCatalogCountries,
   type AvailabilityCountry,
   type AvailabilityLocation,
   type AvailabilityOnline,
   type AvailabilityProduct,
   type AvailabilityStockItem,
   type CatalogCity,
+  type CatalogCountry,
   type ProductAvailabilitySummary,
 } from "./build-availability.js";
 import type { CatalogRates } from "../retailer-types.js";
@@ -24,6 +26,7 @@ export type EnrichCatalogProduct = AvailabilityProduct & {
 export type EnrichCatalogFile = {
   last_updated: string;
   rates?: CatalogRates;
+  countries?: CatalogCountry[];
   cities?: CatalogCity[];
   locations: AvailabilityLocation[];
   products: EnrichCatalogProduct[];
@@ -48,6 +51,7 @@ export async function enrichCatalogAvailability(input: {
   );
   const regionNames = new Map(regions.map((region) => [region.id, region.name]));
 
+  catalog.countries = buildCatalogCountries();
   catalog.cities = buildCatalogCities(catalog.locations, regionNames);
 
   let productsEnriched = 0;

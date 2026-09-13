@@ -13,7 +13,11 @@ import {
   type MergePriceOffer,
 } from "../services/parse/merge-online-retailers.js";
 import { enrichCatalogAvailability } from "../services/parse/availability/enrich-catalog.js";
-import type { CatalogCity } from "../services/parse/availability/build-availability.js";
+import type {
+  CatalogCity,
+  CatalogCountry,
+  ProductAvailabilitySummary,
+} from "../services/parse/availability/build-availability.js";
 import type {
   CatalogRates,
   CatalogSource,
@@ -22,7 +26,6 @@ import type {
   OnlineRetailerSource,
   ParsedRetailerProduct,
 } from "../services/parse/retailer-types.js";
-import type { ProductAvailabilitySummary } from "../services/parse/availability/build-availability.js";
 
 type CatalogLocation = {
   id: number;
@@ -59,6 +62,7 @@ type CatalogProduct = {
 type CatalogFile = {
   last_updated: string;
   rates?: CatalogRates;
+  countries?: CatalogCountry[];
   cities?: CatalogCity[];
   locations: CatalogLocation[];
   products: CatalogProduct[];
