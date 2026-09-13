@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useCatalog } from "../hooks/useCatalog";
 import {
@@ -30,8 +30,8 @@ export function SiteHeader() {
   const [searchParams, setSearchParams] = useSearchParams();
   const isHome = location.pathname === "/";
   const hydratedFromUrl = useRef(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
-  // Apply ?q= / ?stock= once when opening home (shareable links / Искать).
   useEffect(() => {
     if (!isHome) {
       hydratedFromUrl.current = false;
@@ -43,6 +43,10 @@ export function SiteHeader() {
     setQuery(searchParams.get("q") ?? "");
     setInStockOnly(searchParams.get("stock") === "1");
   }, [isHome, searchParams, setQuery, setInStockOnly]);
+
+  useEffect(() => {
+    setSearchOpen(false);
+  }, [location.pathname]);
 
   const syncHomeUrl = (nextQuery: string, nextStock: boolean) => {
     const params = new URLSearchParams();
@@ -59,52 +63,74 @@ export function SiteHeader() {
   }, [catalog, country]);
 
   return (
-    <header className="site-header">
+    <header className={`site-header${searchOpen ? " site-header--search-open" : ""}`}>
       <div className="site-header__inner">
-        <Link to="/" className="site-header__brand">
-          Поиск сыщиков
-        </Link>
+        <div className="site-header__primary">
+          <button
+            type="button"
+            className="site-header__search-toggle"
+            aria-expanded={searchOpen}
+            aria-controls="site-header-search-panel"
+            onClick={() => setSearchOpen((open) => !open)}
+          >
+            <span className="visually-hidden">
+              {searchOpen ? "Скрыть поиск" : "Показать поиск"}
+            </span>
+            {searchOpen ? <CloseIcon /> : <SearchIcon />}
+          </button>
 
-        <div className="site-header__filters">
-          {isHome ? (
-            <>
-              <label className="search site-header__search">
-                <span className="visually-hidden">Поиск товара</span>
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setQuery(next);
-                    syncHomeUrl(next, inStockOnly);
-                  }}
-                  placeholder="Название товара…"
-                  autoComplete="off"
-                />
-              </label>
+          <Link to="/" className="site-header__brand site-header__brand--bar">
+            Поиск сыщиков
+          </Link>
 
-              <label className="filter-check site-header__stock">
-                <input
-                  type="checkbox"
-                  checked={inStockOnly}
-                  onChange={(e) => {
-                    const next = e.target.checked;
-                    setInStockOnly(next);
-                    syncHomeUrl(query, next);
-                  }}
-                />
-                <span>Только в наличии</span>
-              </label>
-            </>
-          ) : (
-            <Link
-              to={homeSearchHref(query, inStockOnly)}
-              className="site-header__search-btn"
-            >
-              Искать
+          <div
+            id="site-header-search-panel"
+            className="site-header__search-panel"
+          >
+            <Link to="/" className="site-header__brand site-header__brand--panel">
+              Поиск сыщиков
             </Link>
-          )}
 
+            <label className="search site-header__search">
+              <span className="visually-hidden">Поиск товара</span>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setQuery(next);
+                  if (isHome) syncHomeUrl(next, inStockOnly);
+                }}
+                placeholder="Название товара…"
+                autoComplete="off"
+              />
+            </label>
+
+            <label className="filter-check site-header__stock">
+              <input
+                type="checkbox"
+                checked={inStockOnly}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setInStockOnly(next);
+                  if (isHome) syncHomeUrl(query, next);
+                }}
+              />
+              <span>В наличии</span>
+            </label>
+
+            {!isHome ? (
+              <Link
+                to={homeSearchHref(query, inStockOnly)}
+                className="site-header__search-btn"
+              >
+                Искать
+              </Link>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="site-header__locale">
           <label className="filter-select site-header__select">
             <span className="visually-hidden">Страна</span>
             <select
@@ -144,5 +170,41 @@ export function SiteHeader() {
         </div>
       </div>
     </header>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <circle
+        cx="11"
+        cy="11"
+        r="6.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M16.2 16.2 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path
+        d="M6 6l12 12M18 6 6 18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
