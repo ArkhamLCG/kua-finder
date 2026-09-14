@@ -67,9 +67,9 @@ export function SiteHeader() {
             onClick={() => setSearchOpen((open) => !open)}
           >
             <span className="visually-hidden">
-              {searchOpen ? "Скрыть поиск" : "Показать поиск"}
+              {searchOpen ? "Скрыть фильтры" : "Показать фильтры"}
             </span>
-            {searchOpen ? <CloseIcon /> : <SearchIcon />}
+            {searchOpen ? <CloseIcon /> : <FilterIcon />}
           </button>
 
           <Link to="/" className="site-header__brand site-header__brand--bar">
@@ -181,19 +181,11 @@ export function SiteHeader() {
   );
 }
 
-function SearchIcon() {
+function FilterIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <circle
-        cx="11"
-        cy="11"
-        r="6.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
       <path
-        d="M16.2 16.2 20 20"
+        d="M4 6.5h16M7.5 12h9M10.5 17.5h3"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.8"

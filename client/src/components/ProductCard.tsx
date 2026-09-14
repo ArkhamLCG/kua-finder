@@ -33,20 +33,24 @@ export function ProductCard({
   const badges = getRetailerBadges(product, regionId, country);
 
   const hasStores = storeCount > 0;
-  const showCityHover = hasStores && regionId == null && storeCount > 0;
-  const hoverItems = showCityHover
-    ? listAvailabilityHoverItems(product, country)
-    : null;
-  const hasHoverContent =
-    hoverItems != null &&
-    hoverItems.groups.some((group) => group.items.length > 0);
+  const cityHover =
+    hasStores && regionId == null
+      ? listAvailabilityHoverItems(product, country)
+      : null;
+  const cityNames =
+    cityHover?.groups.flatMap((group) => group.items) ?? [];
+  const singleCityName =
+    regionId == null && storeCount === 1 ? (cityNames[0] ?? null) : null;
+  const showCityHover = storeCount > 1 && cityNames.length > 0;
 
   let statusText: string | null = null;
   if (hasStores) {
-    statusText =
-      regionId == null
-        ? `${storeCount} ${pluralCities(storeCount)}`
-        : `${storeCount} ${pluralStores(storeCount)}`;
+    if (regionId == null) {
+      statusText =
+        singleCityName ?? `${storeCount} ${pluralCities(storeCount)}`;
+    } else {
+      statusText = `${storeCount} ${pluralStores(storeCount)}`;
+    }
   } else if (available) {
     statusText = "Есть онлайн";
   } else {
@@ -79,14 +83,14 @@ export function ProductCard({
           className={`product-card__meta${available ? " is-available" : " is-unavailable"}`}
         >
           {statusText ? (
-            hasHoverContent ? (
+            showCityHover ? (
               <span
                 className="product-card__status product-card__status--hoverable"
                 tabIndex={0}
               >
                 {statusText}
                 <span className="product-card__popper" role="tooltip">
-                  {hoverItems!.groups.map((group, index) => (
+                  {cityHover!.groups.map((group, index) => (
                     <span
                       key={group.label ?? `cities-${index}`}
                       className="product-card__popper-group"
