@@ -519,10 +519,17 @@ input {
 
 .product-card__status--hoverable {
   position: relative;
-  cursor: help;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
   text-decoration: underline;
   text-decoration-style: dotted;
   text-underline-offset: 0.18em;
+  text-align: left;
 }
 
 .product-card__popper {
@@ -548,10 +555,16 @@ input {
   pointer-events: none;
 }
 
-.product-card__status--hoverable:hover .product-card__popper,
-.product-card__status--hoverable:focus-visible .product-card__popper {
+.product-card__status--hoverable.is-open .product-card__popper {
   display: block;
   pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .product-card__status--hoverable:hover .product-card__popper {
+    display: block;
+    pointer-events: auto;
+  }
 }
 
 .product-card__popper-title {
@@ -1110,6 +1123,7 @@ input {
 
   .site-header__primary {
     flex: 0 0 auto;
+    width: auto;
     min-width: 0;
     gap: 0.4rem;
   }
@@ -1177,24 +1191,36 @@ input {
   }
 
   .site-header__locale {
-    flex: 1 1 auto;
+    flex: 1 1 0%;
     min-width: 0;
     width: auto;
     margin-left: 0;
     gap: 0.4rem;
-    justify-content: stretch;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-header__locale:has(> :only-child) {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .site-header__select {
-    flex: 1 1 0;
+    display: block;
+    width: auto;
     min-width: 0;
+    max-width: 100%;
   }
 
   .site-header__select select {
+    display: block;
+    box-sizing: border-box;
     width: 100%;
+    max-width: 100%;
     min-width: 0;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
+    padding: 0.5rem 1.75rem 0.5rem 0.65rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .filters {
@@ -1203,13 +1229,13 @@ input {
   }
 
   .search,
-  .filter-select {
+  .filter-select:not(.site-header__select) {
     display: block;
     width: 100%;
   }
 
   .search input,
-  .filter-select select,
+  .filter-select:not(.site-header__select) select,
   .availability__search input {
     width: 100%;
     min-width: 0;

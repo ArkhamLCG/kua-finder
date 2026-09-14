@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   countAvailableCities,
@@ -84,31 +85,10 @@ export function ProductCard({
         >
           {statusText ? (
             showCityHover ? (
-              <span
-                className="product-card__status product-card__status--hoverable"
-                tabIndex={0}
-              >
-                {statusText}
-                <span className="product-card__popper" role="tooltip">
-                  {cityHover!.groups.map((group, index) => (
-                    <span
-                      key={group.label ?? `cities-${index}`}
-                      className="product-card__popper-group"
-                    >
-                      {group.label ? (
-                        <span className="product-card__popper-title">
-                          {group.label}
-                        </span>
-                      ) : null}
-                      <ul className="product-card__popper-list">
-                        {group.items.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </span>
-                  ))}
-                </span>
-              </span>
+              <CityPopperTrigger
+                label={statusText}
+                groups={cityHover!.groups}
+              />
             ) : (
               <span className="product-card__status">{statusText}</span>
             )
@@ -135,6 +115,68 @@ export function ProductCard({
         </div>
       ) : null}
     </article>
+  );
+}
+
+function CityPopperTrigger({
+  label,
+  groups,
+}: {
+  label: string;
+  groups: Array<{ label: string | null; items: string[] }>;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLButtonElement>(null);
+  const popperId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && rootRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <button
+      ref={rootRef}
+      type="button"
+      className={`product-card__status product-card__status--hoverable${open ? " is-open" : ""}`}
+      aria-expanded={open}
+      aria-controls={popperId}
+      onClick={() => setOpen((value) => !value)}
+    >
+      {label}
+      <span className="product-card__popper" id={popperId} role="tooltip">
+        {groups.map((group, index) => (
+          <span
+            key={group.label ?? `cities-${index}`}
+            className="product-card__popper-group"
+          >
+            {group.label ? (
+              <span className="product-card__popper-title">{group.label}</span>
+            ) : null}
+            <ul className="product-card__popper-list">
+              {group.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </span>
+        ))}
+      </span>
+    </button>
   );
 }
 
