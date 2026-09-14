@@ -1180,7 +1180,7 @@ input {
   .site-header__stock {
     width: auto;
     flex: 0 0 auto;
-    margin-left: 0;
+    margin-left: auto;
   }
 
   .site-header__search-btn {
