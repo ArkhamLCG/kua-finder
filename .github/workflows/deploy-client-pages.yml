@@ -1,10 +1,13 @@
-name: Deploy GitHub Pages (parse + client)
+name: Deploy Client Pages
 
 on:
   workflow_dispatch:
-  schedule:
-    # Once daily: 03:00 UTC (06:00 MSK)
-    - cron: "0 3 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "client/**"
+      - "package-lock.json"
+      - ".github/workflows/deploy-client-pages.yml"
 
 permissions:
   contents: read
@@ -18,7 +21,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,14 +35,10 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Configure API env
-        run: cp api/.env.example api/.env
-
-      - name: Parse catalog page
-        run: npm run parse:page
-
-      - name: Update product stock
-        run: npm run update:products
+      - name: Fetch published catalog data
+        run: node client/scripts/fetch-pages-data.mjs
+        env:
+          PAGES_DATA_BASE_URL: https://${{ github.repository_owner }}.github.io/kua-finder
 
       - name: Build client for GitHub Pages
         run: npm run build:pages

@@ -33,7 +33,9 @@
     "repair:locations": "npm run repair:locations -w kua-finder-api",
     "copy:data": "npm run copy-data -w kua-finder-client",
     "prepare:pages": "npm run parse && npm run copy:data && npm run build:pages",
-    "deploy:pages": "gh workflow run \"Deploy GitHub Pages\""
+    "deploy:pages": "gh workflow run \"Deploy GitHub Pages (parse + client)\"",
+    "deploy:client": "gh workflow run \"Deploy Client Pages\"",
+    "fetch:pages-data": "node client/scripts/fetch-pages-data.mjs"
   },
   "engines": {
     "node": ">=20"
