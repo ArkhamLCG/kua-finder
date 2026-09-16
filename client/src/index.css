@@ -1204,7 +1204,7 @@ input {
   .site-header__search-btn {
     width: auto;
     flex: 0 0 auto;
-    margin-left: auto;
+    margin-left: 0;
     padding: 0.5rem 0.95rem;
   }
 
