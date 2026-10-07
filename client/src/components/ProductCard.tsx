@@ -1,199 +1,233 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  countAvailableCities,
-  countAvailableStores,
-  formatListPrice,
-  getListPrice,
-  getRetailerBadges,
-  listAvailabilityHoverItems,
+	countAvailableCities,
+	countAvailableStores,
+	formatListPrice,
+	getListPrice,
+	getRetailerBadges,
+	listAvailabilityHoverItems,
+	productHasOnline,
 } from "../lib/catalog";
 import type { CatalogProduct, CatalogRates, Country } from "../types";
 import { RetailerIcon } from "./RetailerIcon";
 
 type Props = {
-  product: CatalogProduct;
-  available: boolean;
-  regionId: number | null;
-  country: Country | null;
-  rates?: CatalogRates;
+	product: CatalogProduct;
+	available: boolean;
+	regionId: number | null;
+	country: Country | null;
+	rates?: CatalogRates;
 };
 
 export function ProductCard({
-  product,
-  available,
-  regionId,
-  country,
-  rates,
+	product,
+	available,
+	regionId,
+	country,
+	rates,
 }: Props) {
-  const storeCount =
-    regionId == null
-      ? countAvailableCities(product, country)
-      : countAvailableStores(product, regionId, country);
+	const storeCount =
+		regionId == null
+			? countAvailableCities(product, country)
+			: countAvailableStores(product, regionId, country);
 
-  const badges = getRetailerBadges(product, regionId, country);
+	const badges = getRetailerBadges(product, regionId, country);
 
-  const hasStores = storeCount > 0;
-  const cityHover =
-    hasStores && regionId == null
-      ? listAvailabilityHoverItems(product, country)
-      : null;
-  const cityNames =
-    cityHover?.groups.flatMap((group) => group.items) ?? [];
-  const singleCityName =
-    regionId == null && storeCount === 1 ? (cityNames[0] ?? null) : null;
-  const showCityHover = storeCount > 1 && cityNames.length > 0;
+	const hasStores = storeCount > 0;
+	const cityHover =
+		hasStores && regionId == null
+			? listAvailabilityHoverItems(product, country)
+			: null;
+	const cityNames = cityHover?.groups.flatMap((group) => group.items) ?? [];
+	const singleCityName =
+		regionId == null && storeCount === 1 ? (cityNames[0] ?? null) : null;
+	const showCityHover = storeCount > 1 && cityNames.length > 0;
 
-  let statusText: string | null = null;
-  if (hasStores) {
-    if (regionId == null) {
-      statusText =
-        singleCityName ?? `${storeCount} ${pluralCities(storeCount)}`;
-    } else {
-      statusText = `${storeCount} ${pluralStores(storeCount)}`;
-    }
-  } else if (available) {
-    statusText = "Есть онлайн";
-  } else {
-    statusText = "Нет в наличии";
-  }
+	let statusText: string | null = null;
+	if (hasStores) {
+		if (regionId == null) {
+			statusText =
+				singleCityName ?? `${storeCount} ${pluralCities(storeCount)}`;
+		} else {
+			statusText = `${storeCount} ${pluralStores(storeCount)}`;
+		}
+	} else if (available) {
+		statusText = "Есть онлайн";
+	} else {
+		statusText = "Нет в наличии";
+	}
 
-  const showSources = badges.length > 1;
-  const listPrice = getListPrice(product, rates);
+	const showSources = badges.length > 1;
+	const showOnlineMarker = hasStores && productHasOnline(product, country);
+	const listPrice = getListPrice(product, rates);
 
-  return (
-    <article
-      className={`product-card${available ? "" : " product-card--unavailable"}`}
-    >
-      <Link to={`/product/${product.id}`} className="product-card__main">
-        <div className="product-card__media">
-          {product.image ? (
-            <img src={product.image} alt="" loading="lazy" />
-          ) : (
-            <div className="product-card__placeholder" aria-hidden />
-          )}
-        </div>
-        <div className="product-card__body">
-          <h2 className="product-card__title">{product.name}</h2>
-          <p className="product-card__price">{formatListPrice(listPrice)}</p>
-        </div>
-      </Link>
+	return (
+		<article
+			className={`product-card${available ? "" : " product-card--unavailable"}`}
+		>
+			<Link to={`/product/${product.id}`} className="product-card__main">
+				<div className="product-card__media">
+					{product.image ? (
+						<img src={product.image} alt="" loading="lazy" />
+					) : (
+						<div className="product-card__placeholder" aria-hidden />
+					)}
+				</div>
+				<div className="product-card__body">
+					<h2 className="product-card__title">{product.name}</h2>
+					<p className="product-card__price">{formatListPrice(listPrice)}</p>
+				</div>
+			</Link>
 
-      {statusText || showSources ? (
-        <div
-          className={`product-card__meta${available ? " is-available" : " is-unavailable"}`}
-        >
-          {statusText ? (
-            showCityHover ? (
-              <CityPopperTrigger
-                label={statusText}
-                groups={cityHover!.groups}
-              />
-            ) : (
-              <span className="product-card__status">{statusText}</span>
-            )
-          ) : null}
-          {showSources ? (
-            <ul className="product-card__retailers" aria-label="Магазины">
-              {badges.map((badge) => (
-                <li key={badge.source} className="product-card__retailer">
-                  <a
-                    className="retailer-badge"
-                    href={badge.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={badge.name}
-                    aria-label={badge.name}
-                  >
-                    <RetailerIcon source={badge.source} />
-                    <span className="retailer-badge__label">{badge.name}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
-    </article>
-  );
+			{statusText || showSources ? (
+				<div
+					className={`product-card__meta${available ? " is-available" : " is-unavailable"}`}
+				>
+					{statusText ? (
+						<span className="product-card__status-line">
+							{showCityHover ? (
+								<CityPopperTrigger
+									label={statusText}
+									groups={cityHover!.groups}
+								/>
+							) : (
+								<span className="product-card__status">{statusText}</span>
+							)}
+							{showOnlineMarker ? <OnlineMarker /> : null}
+						</span>
+					) : null}
+					{showSources ? (
+						<ul className="product-card__retailers" aria-label="Магазины">
+							{badges.map((badge) => (
+								<li key={badge.source} className="product-card__retailer">
+									<a
+										className="retailer-badge"
+										href={badge.url}
+										target="_blank"
+										rel="noreferrer"
+										title={badge.name}
+										aria-label={badge.name}
+									>
+										<RetailerIcon source={badge.source} />
+										<span className="retailer-badge__label">{badge.name}</span>
+									</a>
+								</li>
+							))}
+						</ul>
+					) : null}
+				</div>
+			) : null}
+		</article>
+	);
+}
+
+function usePopperToggle() {
+	const [open, setOpen] = useState(false);
+	const rootRef = useRef<HTMLButtonElement>(null);
+
+	useEffect(() => {
+		if (!open) return;
+
+		const onPointerDown = (event: PointerEvent) => {
+			const target = event.target as Node | null;
+			if (target && rootRef.current?.contains(target)) return;
+			setOpen(false);
+		};
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") setOpen(false);
+		};
+
+		document.addEventListener("pointerdown", onPointerDown);
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", onPointerDown);
+			document.removeEventListener("keydown", onKeyDown);
+		};
+	}, [open]);
+
+	return { open, setOpen, rootRef };
+}
+
+export function OnlineMarker() {
+	const { open, setOpen, rootRef } = usePopperToggle();
+	const popperId = useId();
+
+	return (
+		<button
+			ref={rootRef}
+			type="button"
+			className={`online-marker${open ? " is-open" : ""}`}
+			aria-label="Есть онлайн"
+			aria-expanded={open}
+			aria-controls={popperId}
+			onClick={() => setOpen((value) => !value)}
+		>
+			<span className="online-marker__dot" aria-hidden />
+			<span className="product-card__popper" id={popperId} role="tooltip">
+				<span className="online-marker__note">
+					Также есть в онлайн-магазинах
+				</span>
+			</span>
+		</button>
+	);
 }
 
 function CityPopperTrigger({
-  label,
-  groups,
+	label,
+	groups,
 }: {
-  label: string;
-  groups: Array<{ label: string | null; items: string[] }>;
+	label: string;
+	groups: Array<{ label: string | null; items: string[] }>;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLButtonElement>(null);
-  const popperId = useId();
+	const { open, setOpen, rootRef } = usePopperToggle();
+	const popperId = useId();
 
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (target && rootRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  return (
-    <button
-      ref={rootRef}
-      type="button"
-      className={`product-card__status product-card__status--hoverable${open ? " is-open" : ""}`}
-      aria-expanded={open}
-      aria-controls={popperId}
-      onClick={() => setOpen((value) => !value)}
-    >
-      {label}
-      <span className="product-card__popper" id={popperId} role="tooltip">
-        {groups.map((group, index) => (
-          <span
-            key={group.label ?? `cities-${index}`}
-            className="product-card__popper-group"
-          >
-            {group.label ? (
-              <span className="product-card__popper-title">{group.label}</span>
-            ) : null}
-            <ul className="product-card__popper-list">
-              {group.items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </span>
-        ))}
-      </span>
-    </button>
-  );
+	return (
+		<button
+			ref={rootRef}
+			type="button"
+			className={`product-card__status product-card__status--hoverable${open ? " is-open" : ""}`}
+			aria-expanded={open}
+			aria-controls={popperId}
+			onClick={() => setOpen((value) => !value)}
+		>
+			{label}
+			<span className="product-card__popper" id={popperId} role="tooltip">
+				{groups.map((group, index) => (
+					<span
+						key={group.label ?? `cities-${index}`}
+						className="product-card__popper-group"
+					>
+						{group.label ? (
+							<span className="product-card__popper-title">{group.label}</span>
+						) : null}
+						<ul className="product-card__popper-list">
+							{group.items.map((item) => (
+								<li key={item}>{item}</li>
+							))}
+						</ul>
+					</span>
+				))}
+			</span>
+		</button>
+	);
 }
 
 function pluralCities(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return "город";
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "города";
-  return "городов";
+	const mod10 = n % 10;
+	const mod100 = n % 100;
+	if (mod10 === 1 && mod100 !== 11) return "город";
+	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "города";
+	return "городов";
 }
 
 function pluralStores(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return "магазин";
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-    return "магазина";
-  }
-  return "магазинов";
+	const mod10 = n % 10;
+	const mod100 = n % 100;
+	if (mod10 === 1 && mod100 !== 11) return "магазин";
+	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+		return "магазина";
+	}
+	return "магазинов";
 }
