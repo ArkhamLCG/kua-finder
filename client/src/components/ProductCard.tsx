@@ -165,9 +165,7 @@ export function OnlineMarker() {
 		>
 			<span className="online-marker__dot" aria-hidden />
 			<span className="product-card__popper" id={popperId} role="tooltip">
-				<span className="online-marker__note">
-					Также есть в онлайн-магазинах
-				</span>
+				<span className="online-marker__note">Есть в онлайн</span>
 			</span>
 		</button>
 	);
