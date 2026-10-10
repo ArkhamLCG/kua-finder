@@ -134,28 +134,24 @@ export function ProductDetailPage() {
 
 	const available = productHasStock(product, regionId, country);
 	const listPrice = getListPrice(product, catalog?.rates);
-	const cityCount = filteredCountries.reduce(
-		(sum, group) => sum + group.cities.length,
-		0,
-	);
-	const storeCount = filteredCountries.reduce(
-		(sum, group) =>
-			sum + group.cities.reduce((inner, city) => inner + city.stores.length, 0),
-		0,
-	);
+	const presence = countPresence(filteredCountries);
 	const statusSummary =
 		stockStatus === "loading"
 			? "Загрузка наличия…"
 			: available
 				? summarizeAvailability({
-						cityCount,
-						storeCount,
+						cityCount: presence.stockCities,
+						storeCount: presence.stockStores,
 						onlineCount: filteredOnline.length,
 						regionId,
 					})
-				: "Нет в наличии";
+				: presence.preorder
+					? "Предзаказ"
+					: "Нет в наличии";
+	const preorderStatus = statusSummary === "Предзаказ";
 
-	const hasCityStock = regionId != null ? storeCount > 0 : cityCount > 0;
+	const hasCityStock =
+		regionId != null ? presence.stockStores > 0 : presence.stockCities > 0;
 	const showOnlineMarker =
 		stockStatus === "ready" && hasCityStock && filteredOnline.length > 0;
 
@@ -194,7 +190,7 @@ export function ProductDetailPage() {
 					<p className="detail__price">{formatListPrice(listPrice)}</p>
 					<div className="product-card__status-line">
 						<p
-							className={`product-card__status${available ? " is-available" : " is-unavailable"}`}
+							className={`product-card__status${preorderStatus ? " is-preorder" : available ? " is-available" : " is-unavailable"}`}
 						>
 							{statusSummary}
 						</p>
@@ -333,15 +329,10 @@ export function ProductDetailPage() {
 									(sum, city) => sum + city.stores.length,
 									0,
 								);
-								const countryQty = group.cities.reduce(
-									(sum, city) =>
-										sum +
-										city.stores.reduce(
-											(inner, store) => inner + Math.max(0, store.status),
-											0,
-										),
-									0,
+								const countryStores = group.cities.flatMap(
+									(city) => city.stores,
 								);
+								const countryLabel = formatStoresLabel(countryStores);
 								const productUrl = countryProductUrl(group, product);
 								const toggleCountry = () => {
 									setExpandedCountries((prev) => {
@@ -396,8 +387,10 @@ export function ProductDetailPage() {
 														</span>
 													) : null}
 												</span>
-												<span className="city-block__qty">
-													{formatQuantity(countryQty)}
+												<span
+													className={`city-block__qty${countryLabel === "Предзаказ" ? " store-row__status--preorder" : ""}`}
+												>
+													{countryLabel}
 												</span>
 											</h3>
 										</div>
@@ -499,6 +492,7 @@ function CityAccordionList({
 		<ul className={nested ? "city-list city-list--nested" : "city-list"}>
 			{cities.map((city) => {
 				const cityOpen = expandedCities.has(city.regionId);
+				const cityLabel = formatStoresLabel(city.stores);
 				return (
 					<li
 						key={city.regionId}
@@ -530,13 +524,10 @@ function CityAccordionList({
 										</span>
 									) : null}
 								</span>
-								<span className="city-block__qty">
-									{formatQuantity(
-										city.stores.reduce(
-											(sum, store) => sum + Math.max(0, store.status),
-											0,
-										),
-									)}
+								<span
+									className={`city-block__qty${cityLabel === "Предзаказ" ? " store-row__status--preorder" : ""}`}
+								>
+									{cityLabel}
 								</span>
 							</h4>
 						</button>
@@ -565,8 +556,10 @@ function StoreRow({ store }: { store: AvailabilityStore }) {
 				) : null}
 			</div>
 			<div className="store-row__meta">
-				<p className="store-row__status">
-					{formatQuantity(store.status)}
+				<p
+					className={`store-row__status${store.preorder ? " store-row__status--preorder" : ""}`}
+				>
+					{store.preorder ? "Предзаказ" : formatQuantity(store.status)}
 					{store.price != null
 						? ` · ${formatPrice(store.price, store.currency)}`
 						: null}
@@ -617,6 +610,38 @@ function onlineOfferCountry(source: string | undefined): Country {
 	if (source === "hobbygames_by") return "BY";
 	if (source === "hobbygames_kz") return "KZ";
 	return "RU";
+}
+
+function countPresence(groups: AvailabilityCountry[]): {
+	stockCities: number;
+	stockStores: number;
+	preorder: boolean;
+} {
+	let stockCities = 0;
+	let stockStores = 0;
+	let preorder = false;
+
+	for (const group of groups) {
+		for (const city of group.cities) {
+			const stocked = city.stores.filter((store) => !store.preorder);
+			if (city.stores.some((store) => store.preorder)) preorder = true;
+			if (stocked.length === 0) continue;
+			stockCities += 1;
+			stockStores += stocked.length;
+		}
+	}
+
+	return { stockCities, stockStores, preorder };
+}
+
+function formatStoresLabel(stores: AvailabilityStore[]): string {
+	const stocked = stores.filter((store) => !store.preorder);
+	if (stocked.length === 0 && stores.some((store) => store.preorder)) {
+		return "Предзаказ";
+	}
+	return formatQuantity(
+		stocked.reduce((sum, store) => sum + Math.max(0, store.status), 0),
+	);
 }
 
 function summarizeAvailability(input: {

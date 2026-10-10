@@ -146,6 +146,21 @@ export function productHasStock(
 	);
 }
 
+/** Preorder is its own state: not in-stock counts, and not “out of stock”. */
+export function productIsPreorder(
+	product: CatalogProduct,
+	regionId: number | null = null,
+	country: Country | null = null,
+): boolean {
+	if (productHasStock(product, regionId, country)) return false;
+
+	const regions = product.availability?.preorderRegionIds ?? [];
+	const countries = product.availability?.preorderCountries ?? [];
+	if (regionId != null) return regions.includes(regionId);
+	if (country != null) return countries.includes(country);
+	return countries.length > 0;
+}
+
 export function getRetailerBadges(
 	product: CatalogProduct,
 	regionId: number | null = null,

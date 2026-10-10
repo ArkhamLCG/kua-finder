@@ -1,210 +1,195 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useCatalog } from "../hooks/useCatalog";
-import {
-  homeSearchHref,
-  useCatalogFilters,
-} from "../hooks/useCatalogFilters";
+import { homeSearchHref, useCatalogFilters } from "../hooks/useCatalogFilters";
 import type { Country } from "../types";
 
 export function SiteHeader() {
-  const { catalog } = useCatalog();
-  const {
-    country,
-    regionId,
-    query,
-    inStockOnly,
-    setCountry,
-    setRegionId,
-    setQuery,
-    setInStockOnly,
-  } = useCatalogFilters();
-  const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const isHome = location.pathname === "/";
-  const hydratedFromUrl = useRef(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+	const { catalog } = useCatalog();
+	const {
+		country,
+		regionId,
+		query,
+		inStockOnly,
+		setCountry,
+		setRegionId,
+		setQuery,
+		setInStockOnly,
+	} = useCatalogFilters();
+	const location = useLocation();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const isHome = location.pathname === "/";
+	const hydratedFromUrl = useRef(false);
+	const [searchOpen, setSearchOpen] = useState(false);
 
-  useEffect(() => {
-    if (!isHome) {
-      hydratedFromUrl.current = false;
-      return;
-    }
-    if (hydratedFromUrl.current) return;
-    hydratedFromUrl.current = true;
+	useEffect(() => {
+		if (!isHome) {
+			hydratedFromUrl.current = false;
+			return;
+		}
+		if (hydratedFromUrl.current) return;
+		hydratedFromUrl.current = true;
 
-    setQuery(searchParams.get("q") ?? "");
-    setInStockOnly(searchParams.get("stock") === "1");
-  }, [isHome, searchParams, setQuery, setInStockOnly]);
+		setQuery(searchParams.get("q") ?? "");
+		setInStockOnly(searchParams.get("stock") === "1");
+	}, [isHome, searchParams, setQuery, setInStockOnly]);
 
-  useEffect(() => {
-    setSearchOpen(false);
-  }, [location.pathname]);
+	useEffect(() => {
+		setSearchOpen(false);
+	}, [location.pathname]);
 
-  const syncHomeUrl = (nextQuery: string, nextStock: boolean) => {
-    const params = new URLSearchParams();
-    const trimmed = nextQuery.trim();
-    if (trimmed) params.set("q", trimmed);
-    if (nextStock) params.set("stock", "1");
-    setSearchParams(params, { replace: true });
-  };
+	const syncHomeUrl = (nextQuery: string, nextStock: boolean) => {
+		const params = new URLSearchParams();
+		const trimmed = nextQuery.trim();
+		if (trimmed) params.set("q", trimmed);
+		if (nextStock) params.set("stock", "1");
+		setSearchParams(params, { replace: true });
+	};
 
-  const cities = useMemo(() => {
-    const all = catalog?.cities ?? [];
-    if (country == null) return all;
-    return all.filter((city) => city.country === country);
-  }, [catalog, country]);
+	const cities = useMemo(() => {
+		const all = catalog?.cities ?? [];
+		if (country == null) return all;
+		return all.filter((city) => city.country === country);
+	}, [catalog, country]);
 
-  return (
-    <header className={`site-header${searchOpen ? " site-header--search-open" : ""}`}>
-      <div className="site-header__inner">
-        <div className="site-header__primary">
-          <button
-            type="button"
-            className="site-header__search-toggle"
-            aria-expanded={searchOpen}
-            aria-controls="site-header-search-panel"
-            onClick={() => setSearchOpen((open) => !open)}
-          >
-            <span className="visually-hidden">
-              {searchOpen ? "Скрыть фильтры" : "Показать фильтры"}
-            </span>
-            {searchOpen ? <CloseIcon /> : <FilterIcon />}
-          </button>
+	return (
+		<header
+			className={`site-header${searchOpen ? " site-header--search-open" : ""}`}
+		>
+			<div className="site-header__inner">
+				<div className="site-header__primary">
+					<button
+						type="button"
+						className="site-header__search-toggle"
+						aria-expanded={searchOpen}
+						aria-controls="site-header-menu"
+						onClick={() => setSearchOpen((open) => !open)}
+					>
+						<span className="visually-hidden">
+							{searchOpen ? "Скрыть фильтры" : "Показать фильтры"}
+						</span>
+						{searchOpen ? <CloseIcon /> : <FilterIcon />}
+					</button>
 
-          <Link to="/" className="site-header__brand site-header__brand--bar">
-            <img
-              className="site-header__logo"
-              src={`${import.meta.env.BASE_URL}logo.svg`}
-              alt=""
-              width={36}
-              height={36}
-            />
-            <span>Поиск сыщиков</span>
-          </Link>
+					<Link to="/" className="site-header__brand site-header__brand--bar">
+						<img
+							className="site-header__logo"
+							src={`${import.meta.env.BASE_URL}logo.svg`}
+							alt=""
+							width={36}
+							height={36}
+						/>
+						<span>Поиск сыщиков</span>
+					</Link>
 
-          <div
-            id="site-header-search-panel"
-            className="site-header__search-panel"
-          >
-            <Link to="/" className="site-header__brand site-header__brand--panel">
-              <img
-                className="site-header__logo"
-                src={`${import.meta.env.BASE_URL}logo.svg`}
-                alt=""
-                width={36}
-                height={36}
-              />
-              <span>Поиск сыщиков</span>
-            </Link>
+					<label className="search site-header__search">
+						<span className="visually-hidden">Поиск товара</span>
+						<input
+							type="search"
+							value={query}
+							onChange={(e) => {
+								const next = e.target.value;
+								setQuery(next);
+								if (isHome) syncHomeUrl(next, inStockOnly);
+							}}
+							placeholder="Название товара…"
+							autoComplete="off"
+						/>
+					</label>
 
-            <label className="search site-header__search">
-              <span className="visually-hidden">Поиск товара</span>
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setQuery(next);
-                  if (isHome) syncHomeUrl(next, inStockOnly);
-                }}
-                placeholder="Название товара…"
-                autoComplete="off"
-              />
-            </label>
+					<div id="site-header-menu" className="site-header__menu">
+						<div className="site-header__locale">
+							<label className="filter-select site-header__select">
+								<span className="visually-hidden">Страна</span>
+								<select
+									value={country ?? ""}
+									onChange={(e) => {
+										const value = e.target.value as "" | Country;
+										setCountry(value ? value : null);
+									}}
+								>
+									<option value="">Все страны</option>
+									{(catalog?.countries ?? []).map((option) => (
+										<option key={option.code} value={option.code}>
+											{option.name}
+										</option>
+									))}
+								</select>
+							</label>
 
-            <label className="filter-check site-header__stock">
-              <input
-                type="checkbox"
-                checked={inStockOnly}
-                onChange={(e) => {
-                  const next = e.target.checked;
-                  setInStockOnly(next);
-                  if (isHome) syncHomeUrl(query, next);
-                }}
-              />
-              <span>В продаже</span>
-            </label>
+							{cities.length > 0 ? (
+								<label className="filter-select site-header__select">
+									<span className="visually-hidden">Город</span>
+									<select
+										value={regionId ?? ""}
+										onChange={(e) => {
+											const value = e.target.value;
+											setRegionId(value ? Number(value) : null);
+										}}
+									>
+										<option value="">Все города</option>
+										{cities.map((city) => (
+											<option key={city.id} value={city.id}>
+												{city.name}
+											</option>
+										))}
+									</select>
+								</label>
+							) : null}
+						</div>
 
-            {!isHome ? (
-              <Link
-                to={homeSearchHref(query, inStockOnly)}
-                className="site-header__search-btn"
-              >
-                Искать
-              </Link>
-            ) : null}
-          </div>
-        </div>
+						<label className="filter-check site-header__stock">
+							<input
+								type="checkbox"
+								checked={inStockOnly}
+								onChange={(e) => {
+									const next = e.target.checked;
+									setInStockOnly(next);
+									if (isHome) syncHomeUrl(query, next);
+								}}
+							/>
+							<span>В продаже</span>
+						</label>
 
-        <div className="site-header__locale">
-          <label className="filter-select site-header__select">
-            <span className="visually-hidden">Страна</span>
-            <select
-              value={country ?? ""}
-              onChange={(e) => {
-                const value = e.target.value as "" | Country;
-                setCountry(value ? value : null);
-              }}
-            >
-              <option value="">Все страны</option>
-              {(catalog?.countries ?? []).map((option) => (
-                <option key={option.code} value={option.code}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {cities.length > 0 ? (
-            <label className="filter-select site-header__select">
-              <span className="visually-hidden">Город</span>
-              <select
-                value={regionId ?? ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setRegionId(value ? Number(value) : null);
-                }}
-              >
-                <option value="">Все города</option>
-                {cities.map((city) => (
-                  <option key={city.id} value={city.id}>
-                    {city.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-        </div>
-      </div>
-    </header>
-  );
+						{!isHome ? (
+							<Link
+								to={homeSearchHref(query, inStockOnly)}
+								className="site-header__search-btn"
+							>
+								Искать
+							</Link>
+						) : null}
+					</div>
+				</div>
+			</div>
+		</header>
+	);
 }
 
 function FilterIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <path
-        d="M4 6.5h16M7.5 12h9M10.5 17.5h3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+	return (
+		<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+			<path
+				d="M4 6.5h16M7.5 12h9M10.5 17.5h3"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.8"
+				strokeLinecap="round"
+			/>
+		</svg>
+	);
 }
 
 function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <path
-        d="M6 6l12 12M18 6 6 18"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+	return (
+		<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+			<path
+				d="M6 6l12 12M18 6 6 18"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.8"
+				strokeLinecap="round"
+			/>
+		</svg>
+	);
 }

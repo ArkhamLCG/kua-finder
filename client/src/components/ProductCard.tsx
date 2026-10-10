@@ -8,6 +8,7 @@ import {
 	getRetailerBadges,
 	listAvailabilityHoverItems,
 	productHasOnline,
+	productIsPreorder,
 } from "../lib/catalog";
 import type { CatalogProduct, CatalogRates, Country } from "../types";
 import { RetailerIcon } from "./RetailerIcon";
@@ -54,9 +55,13 @@ export function ProductCard({
 		}
 	} else if (available) {
 		statusText = "Есть онлайн";
+	} else if (productIsPreorder(product, regionId, country)) {
+		statusText = "Предзаказ";
 	} else {
 		statusText = "Нет в наличии";
 	}
+
+	const preorder = statusText === "Предзаказ";
 
 	const showSources = badges.length > 1;
 	const showOnlineMarker = hasStores && productHasOnline(product, country);
@@ -64,7 +69,7 @@ export function ProductCard({
 
 	return (
 		<article
-			className={`product-card${available ? "" : " product-card--unavailable"}`}
+			className={`product-card${available || preorder ? "" : " product-card--unavailable"}`}
 		>
 			<Link to={`/product/${product.id}`} className="product-card__main">
 				<div className="product-card__media">
@@ -82,7 +87,7 @@ export function ProductCard({
 
 			{statusText || showSources ? (
 				<div
-					className={`product-card__meta${available ? " is-available" : " is-unavailable"}`}
+					className={`product-card__meta${preorder ? " is-preorder" : available ? " is-available" : " is-unavailable"}`}
 				>
 					{statusText ? (
 						<span className="product-card__status-line">
