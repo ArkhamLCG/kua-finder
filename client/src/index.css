@@ -582,7 +582,7 @@ input {
 	text-align: left;
 }
 
-.detail__info > .detail__external {
+.detail__info > .detail__cta {
 	margin-left: 1rem;
 }
 
@@ -917,9 +917,17 @@ input {
 	font-weight: 600;
 }
 
+.detail__cta {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.55rem;
+	margin-top: 1rem;
+}
+
 .detail__external {
 	display: inline-flex;
-	margin-top: 1rem;
+	margin-top: 0;
 	padding: 0.7rem 1.1rem;
 	border-radius: 999px;
 	background: var(--accent);
@@ -933,6 +941,14 @@ input {
 .detail__external:hover {
 	transform: translateY(-1px);
 	filter: brightness(1.05);
+}
+
+.detail__cta-note {
+	margin: 0;
+	max-width: 22rem;
+	color: var(--ink-muted, #5c6b73);
+	font-size: 0.86rem;
+	line-height: 1.4;
 }
 
 .availability__title {

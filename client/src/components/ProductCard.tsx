@@ -1,15 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId } from "react";
 import { Link } from "react-router-dom";
-import {
-	countAvailableCities,
-	countAvailableStores,
-	formatListPrice,
-	getListPrice,
-	getRetailerBadges,
-	listAvailabilityHoverItems,
-	productHasOnline,
-	productIsPreorder,
-} from "../lib/catalog";
+import { usePopperToggle } from "../hooks/usePopperToggle";
+import { formatListPrice } from "../lib/catalog";
+import { productCardModel } from "../lib/product-card";
 import type { CatalogProduct, CatalogRates, Country } from "../types";
 import { RetailerIcon } from "./RetailerIcon";
 
@@ -28,44 +21,16 @@ export function ProductCard({
 	country,
 	rates,
 }: Props) {
-	const storeCount =
-		regionId == null
-			? countAvailableCities(product, country)
-			: countAvailableStores(product, regionId, country);
-
-	const badges = getRetailerBadges(product, regionId, country);
-
-	const hasStores = storeCount > 0;
-	const cityHover =
-		hasStores && regionId == null
-			? listAvailabilityHoverItems(product, country)
-			: null;
-	const cityNames = cityHover?.groups.flatMap((group) => group.items) ?? [];
-	const singleCityName =
-		regionId == null && storeCount === 1 ? (cityNames[0] ?? null) : null;
-	const showCityHover = storeCount > 1 && cityNames.length > 0;
-
-	let statusText: string | null = null;
-	if (hasStores) {
-		if (regionId == null) {
-			statusText =
-				singleCityName ?? `${storeCount} ${pluralCities(storeCount)}`;
-		} else {
-			statusText = `${storeCount} ${pluralStores(storeCount)}`;
-		}
-	} else if (available) {
-		statusText = "Есть онлайн";
-	} else if (productIsPreorder(product, regionId, country)) {
-		statusText = "Предзаказ";
-	} else {
-		statusText = "Нет в наличии";
-	}
-
-	const preorder = statusText === "Предзаказ";
-
-	const showSources = badges.length > 1;
-	const showOnlineMarker = hasStores && productHasOnline(product, country);
-	const listPrice = getListPrice(product, rates);
+	const {
+		statusText,
+		preorder,
+		showCityHover,
+		cityGroups,
+		showOnlineMarker,
+		showSources,
+		badges,
+		listPrice,
+	} = productCardModel({ product, available, regionId, country, rates });
 
 	return (
 		<article
@@ -92,10 +57,7 @@ export function ProductCard({
 					{statusText ? (
 						<span className="product-card__status-line">
 							{showCityHover ? (
-								<CityPopperTrigger
-									label={statusText}
-									groups={cityHover!.groups}
-								/>
+								<CityPopperTrigger label={statusText} groups={cityGroups} />
 							) : (
 								<span className="product-card__status">{statusText}</span>
 							)}
@@ -125,33 +87,6 @@ export function ProductCard({
 			) : null}
 		</article>
 	);
-}
-
-function usePopperToggle() {
-	const [open, setOpen] = useState(false);
-	const rootRef = useRef<HTMLButtonElement>(null);
-
-	useEffect(() => {
-		if (!open) return;
-
-		const onPointerDown = (event: PointerEvent) => {
-			const target = event.target as Node | null;
-			if (target && rootRef.current?.contains(target)) return;
-			setOpen(false);
-		};
-		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") setOpen(false);
-		};
-
-		document.addEventListener("pointerdown", onPointerDown);
-		document.addEventListener("keydown", onKeyDown);
-		return () => {
-			document.removeEventListener("pointerdown", onPointerDown);
-			document.removeEventListener("keydown", onKeyDown);
-		};
-	}, [open]);
-
-	return { open, setOpen, rootRef };
 }
 
 export function OnlineMarker() {
@@ -215,22 +150,4 @@ function CityPopperTrigger({
 			</span>
 		</button>
 	);
-}
-
-function pluralCities(n: number): string {
-	const mod10 = n % 10;
-	const mod100 = n % 100;
-	if (mod10 === 1 && mod100 !== 11) return "город";
-	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "города";
-	return "городов";
-}
-
-function pluralStores(n: number): string {
-	const mod10 = n % 10;
-	const mod100 = n % 100;
-	if (mod10 === 1 && mod100 !== 11) return "магазин";
-	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-		return "магазина";
-	}
-	return "магазинов";
 }

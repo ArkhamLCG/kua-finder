@@ -1,31 +1,29 @@
-import {
-	type Dispatch,
-	type SetStateAction,
-	useEffect,
-	useMemo,
-	useState,
-} from "react";
+import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useCatalog } from "../hooks/useCatalog";
 import { useCatalogFilters } from "../hooks/useCatalogFilters";
+import { useProductStock } from "../hooks/useProductStock";
 import {
 	formatListPrice,
 	formatPrice,
 	formatQuantity,
 	formatStockLabel,
-	getListPrice,
-	loadProductStock,
-	productHasStock,
 } from "../lib/catalog";
 import { CATALOG_DISCLAIMER } from "../lib/disclaimer";
-import type {
-	AvailabilityCity,
-	AvailabilityCountry,
-	AvailabilityOnline,
-	AvailabilityStore,
-	CatalogProduct,
-	Country,
-} from "../types";
+import {
+	countryProductLinkLabel,
+	externalLinkLabel,
+	isHobbyGamesRuUrl,
+	onlineLinkLabel,
+	phoneTelHref,
+} from "../lib/links";
+import { pluralStores } from "../lib/plural";
+import {
+	buildStoreView,
+	describeCountryGroup,
+	storeGroupSummary,
+} from "../lib/store-view";
+import type { AvailabilityCity, AvailabilityStore } from "../types";
 import { OnlineMarker } from "./ProductCard";
 
 export function ProductDetailPage() {
@@ -34,94 +32,36 @@ export function ProductDetailPage() {
 	const { country, regionId } = useCatalogFilters();
 
 	const id = Number(productId);
-	const product = products.find((item) => item.id === id);
+	const product = products.find((item) => item.id === id) ?? null;
+	const stock = useProductStock(product?.id ?? null);
 
-	const [stockStatus, setStockStatus] = useState<"loading" | "ready" | "error">(
-		"loading",
-	);
-	const [stockError, setStockError] = useState<string | null>(null);
-	const [countries, setCountries] = useState<AvailabilityCountry[]>([]);
-	const [onlineOffers, setOnlineOffers] = useState<AvailabilityOnline[]>([]);
-	const [expandedCountries, setExpandedCountries] = useState<Set<Country>>(
-		() => new Set(),
-	);
-	const [expandedCities, setExpandedCities] = useState<Set<number>>(
-		() => new Set(),
-	);
-	const [cityQuery, setCityQuery] = useState("");
-
-	useEffect(() => {
-		if (!product) return;
-
-		let cancelled = false;
-		setStockStatus("loading");
-		setStockError(null);
-		setExpandedCountries(new Set());
-		setExpandedCities(new Set());
-		setCityQuery("");
-
-		loadProductStock(product.id)
-			.then((detail) => {
-				if (cancelled) return;
-				setCountries(detail.countries);
-				setOnlineOffers(detail.online);
-				setStockStatus("ready");
-			})
-			.catch((err: unknown) => {
-				if (cancelled) return;
-				setStockError(err instanceof Error ? err.message : String(err));
-				setStockStatus("error");
-			});
-
-		return () => {
-			cancelled = true;
-		};
-	}, [product]);
-
-	const filteredCountries = useMemo(() => {
-		let next = countries;
-
-		if (country != null) {
-			next = next.filter((group) => group.country === country);
-		}
-
-		if (regionId != null) {
-			next = next
-				.map((group) => ({
-					...group,
-					cities: group.cities.filter((city) => city.regionId === regionId),
-				}))
-				.filter((group) => group.cities.length > 0);
-		}
-
-		const normalized = cityQuery.trim().toLowerCase();
-		if (!normalized) return next;
-
-		return next
-			.map((group) => ({
-				...group,
-				cities: group.cities.filter(
-					(city) =>
-						city.regionName.toLowerCase().includes(normalized) ||
-						group.countryName.toLowerCase().includes(normalized),
-				),
-			}))
-			.filter((group) => group.cities.length > 0);
-	}, [countries, country, regionId, cityQuery]);
-
-	const filteredOnline = useMemo(() => {
-		if (country == null) return onlineOffers;
-		return onlineOffers.filter(
-			(offer) => onlineOfferCountry(offer.source) === country,
-		);
-	}, [onlineOffers, country]);
-
-	const layout = useMemo(
-		() => resolveStoreLayout(filteredCountries),
-		[filteredCountries],
+	const view = useMemo(
+		() =>
+			product
+				? buildStoreView({
+						product,
+						rates: catalog?.rates,
+						country,
+						regionId,
+						stockStatus: stock.status,
+						countries: stock.countries,
+						onlineOffers: stock.onlineOffers,
+						cityQuery: stock.cityQuery,
+					})
+				: null,
+		[
+			product,
+			catalog?.rates,
+			country,
+			regionId,
+			stock.status,
+			stock.countries,
+			stock.onlineOffers,
+			stock.cityQuery,
+		],
 	);
 
-	if (!product) {
+	if (!product || !view) {
 		return (
 			<div className="page">
 				<Link to="/" className="back-link">
@@ -132,43 +72,7 @@ export function ProductDetailPage() {
 		);
 	}
 
-	const available = productHasStock(product, regionId, country);
-	const listPrice = getListPrice(product, catalog?.rates);
-	const presence = countPresence(filteredCountries);
-	const statusSummary =
-		stockStatus === "loading"
-			? "Загрузка наличия…"
-			: available
-				? summarizeAvailability({
-						cityCount: presence.stockCities,
-						storeCount: presence.stockStores,
-						onlineCount: filteredOnline.length,
-						regionId,
-					})
-				: presence.preorder
-					? "Предзаказ"
-					: "Нет в наличии";
-	const preorderStatus = statusSummary === "Предзаказ";
-
-	const hasCityStock =
-		regionId != null ? presence.stockStores > 0 : presence.stockCities > 0;
-	const showOnlineMarker =
-		stockStatus === "ready" && hasCityStock && filteredOnline.length > 0;
-
-	const showCitySearch =
-		regionId == null &&
-		layout.mode !== "empty" &&
-		layout.mode !== "single-store" &&
-		(layout.mode === "multi-country" ||
-			(layout.mode === "single-country" && layout.cities.length > 1));
-
-	const singleCountryLink =
-		layout.mode === "single-country" && filteredCountries[0]
-			? {
-					url: countryProductUrl(filteredCountries[0], product),
-					country: filteredCountries[0].country,
-				}
-			: null;
+	const { layout } = view;
 
 	return (
 		<div className="page page--detail">
@@ -187,44 +91,52 @@ export function ProductDetailPage() {
 
 				<div className="detail__info">
 					<h1 className="detail__title">{product.name}</h1>
-					<p className="detail__price">{formatListPrice(listPrice)}</p>
+					<p className="detail__price">{formatListPrice(view.listPrice)}</p>
 					<div className="product-card__status-line">
 						<p
-							className={`product-card__status${preorderStatus ? " is-preorder" : available ? " is-available" : " is-unavailable"}`}
+							className={`product-card__status${view.preorderStatus ? " is-preorder" : view.available ? " is-available" : " is-unavailable"}`}
 						>
-							{statusSummary}
+							{view.statusSummary}
 						</p>
-						{showOnlineMarker ? <OnlineMarker /> : null}
+						{view.showOnlineMarker ? <OnlineMarker /> : null}
 					</div>
-					<a
-						className="detail__external"
-						href={product.url}
-						target="_blank"
-						rel="noreferrer"
-					>
-						{externalLinkLabel(product.url)}
-					</a>
+					<div className="detail__cta">
+						<a
+							className="detail__external"
+							href={product.url}
+							target="_blank"
+							rel="noreferrer"
+						>
+							{externalLinkLabel(product.url)}
+						</a>
+						{isHobbyGamesRuUrl(product.url) ? (
+							<p className="detail__cta-note">
+								Если вы планируете покупать игру из другого региона — не
+								забудьте сменить его на сайте Hobby Games
+							</p>
+						) : null}
+					</div>
 				</div>
 			</article>
 
 			<p className="detail__disclaimer">{CATALOG_DISCLAIMER}</p>
 
-			{stockStatus === "loading" && (
+			{stock.status === "loading" && (
 				<div className="detail-loader" role="status" aria-live="polite">
 					<div className="loader__spinner" aria-hidden />
 					<p className="state">Загрузка наличия…</p>
 				</div>
 			)}
 
-			{stockStatus === "error" && (
-				<p className="state state--error">{stockError}</p>
+			{stock.status === "error" && (
+				<p className="state state--error">{stock.error}</p>
 			)}
 
-			{stockStatus === "ready" && filteredOnline.length > 0 ? (
+			{stock.status === "ready" && view.filteredOnline.length > 0 ? (
 				<section className="availability availability--online">
 					<h2 className="availability__title">Онлайн</h2>
 					<ul className="online-list">
-						{filteredOnline.map((offer) => (
+						{view.filteredOnline.map((offer) => (
 							<li key={offer.locationId} className="online-row">
 								<div className="online-row__info">
 									<p className="online-row__name">{offer.name}</p>
@@ -251,17 +163,17 @@ export function ProductDetailPage() {
 				</section>
 			) : null}
 
-			{stockStatus === "ready" &&
-			(country != null || regionId != null || countries.length > 0) ? (
+			{stock.status === "ready" &&
+			(country != null || regionId != null || stock.countries.length > 0) ? (
 				<section className="availability">
 					<h2 className="availability__title">Магазины Hobby Games</h2>
-					{showCitySearch ? (
+					{view.showCitySearch ? (
 						<label className="search availability__search">
 							<span className="visually-hidden">Фильтр по городу</span>
 							<input
 								type="search"
-								value={cityQuery}
-								onChange={(e) => setCityQuery(e.target.value)}
+								value={stock.cityQuery}
+								onChange={(e) => stock.setCityQuery(e.target.value)}
 								placeholder="Название города…"
 								autoComplete="off"
 							/>
@@ -269,13 +181,7 @@ export function ProductDetailPage() {
 					) : null}
 
 					{layout.mode === "empty" ? (
-						<p className="state">
-							{regionId != null || country != null
-								? "В выбранном регионе не найдено"
-								: cityQuery.trim()
-									? "Город не найден"
-									: "Сейчас товар нигде не найден в наличии."}
-						</p>
+						<p className="state">{view.emptyMessage}</p>
 					) : null}
 
 					{layout.mode === "single-store" ? (
@@ -291,16 +197,16 @@ export function ProductDetailPage() {
 						<>
 							<p className="availability__note">
 								{layout.note}
-								{singleCountryLink?.url ? (
+								{view.singleCountryLink?.url ? (
 									<>
 										{" · "}
 										<a
 											className="city-block__product-link"
-											href={singleCountryLink.url}
+											href={view.singleCountryLink.url}
 											target="_blank"
 											rel="noreferrer"
 										>
-											{countryProductLinkLabel(singleCountryLink.country)}
+											{countryProductLinkLabel(view.singleCountryLink.country)}
 										</a>
 									</>
 								) : null}
@@ -314,8 +220,8 @@ export function ProductDetailPage() {
 							) : (
 								<CityAccordionList
 									cities={layout.cities}
-									expandedCities={expandedCities}
-									setExpandedCities={setExpandedCities}
+									expandedCities={stock.expandedCities}
+									onToggleCity={stock.toggleCity}
 								/>
 							)}
 						</>
@@ -324,28 +230,8 @@ export function ProductDetailPage() {
 					{layout.mode === "multi-country" ? (
 						<ul className="city-list">
 							{layout.countries.map((group) => {
-								const countryOpen = expandedCountries.has(group.country);
-								const countryStoreCount = group.cities.reduce(
-									(sum, city) => sum + city.stores.length,
-									0,
-								);
-								const countryStores = group.cities.flatMap(
-									(city) => city.stores,
-								);
-								const countryLabel = formatStoresLabel(countryStores);
-								const productUrl = countryProductUrl(group, product);
-								const toggleCountry = () => {
-									setExpandedCountries((prev) => {
-										const next = new Set(prev);
-										if (next.has(group.country)) {
-											next.delete(group.country);
-										} else {
-											next.add(group.country);
-										}
-										return next;
-									});
-								};
-
+								const countryOpen = stock.expandedCountries.has(group.country);
+								const groupView = describeCountryGroup(group, product);
 								return (
 									<li
 										key={group.country}
@@ -356,11 +242,11 @@ export function ProductDetailPage() {
 											role="button"
 											tabIndex={0}
 											aria-expanded={countryOpen}
-											onClick={toggleCountry}
+											onClick={() => stock.toggleCountry(group.country)}
 											onKeyDown={(e) => {
 												if (e.key === "Enter" || e.key === " ") {
 													e.preventDefault();
-													toggleCountry();
+													stock.toggleCountry(group.country);
 												}
 											}}
 										>
@@ -368,10 +254,10 @@ export function ProductDetailPage() {
 												<span className="city-block__chevron" aria-hidden />
 												<span className="city-block__title">
 													{group.countryName}
-													{productUrl ? (
+													{groupView.productUrl ? (
 														<a
 															className="city-block__product-link"
-															href={productUrl}
+															href={groupView.productUrl}
 															target="_blank"
 															rel="noreferrer"
 															onClick={(e) => e.stopPropagation()}
@@ -380,17 +266,17 @@ export function ProductDetailPage() {
 															{countryProductLinkLabel(group.country)}
 														</a>
 													) : null}
-													{countryStoreCount > 1 ? (
+													{groupView.storeCount > 1 ? (
 														<span className="city-block__stores">
-															{countryStoreCount}{" "}
-															{pluralStores(countryStoreCount)}
+															{groupView.storeCount}{" "}
+															{pluralStores(groupView.storeCount)}
 														</span>
 													) : null}
 												</span>
 												<span
-													className={`city-block__qty${countryLabel === "Предзаказ" ? " store-row__status--preorder" : ""}`}
+													className={`city-block__qty${groupView.preorder ? " store-row__status--preorder" : ""}`}
 												>
-													{countryLabel}
+													{groupView.label}
 												</span>
 											</h3>
 										</div>
@@ -410,8 +296,8 @@ export function ProductDetailPage() {
 											) : (
 												<CityAccordionList
 													cities={group.cities}
-													expandedCities={expandedCities}
-													setExpandedCities={setExpandedCities}
+													expandedCities={stock.expandedCities}
+													onToggleCity={stock.toggleCity}
 													nested
 												/>
 											)
@@ -424,9 +310,9 @@ export function ProductDetailPage() {
 				</section>
 			) : null}
 
-			{stockStatus === "ready" &&
-			filteredCountries.length === 0 &&
-			filteredOnline.length === 0 &&
+			{stock.status === "ready" &&
+			view.filteredCountries.length === 0 &&
+			view.filteredOnline.length === 0 &&
 			country == null &&
 			regionId == null ? (
 				<p className="state">Сейчас товар нигде не найден в наличии.</p>
@@ -435,64 +321,22 @@ export function ProductDetailPage() {
 	);
 }
 
-type StoreLayout =
-	| { mode: "empty" }
-	| { mode: "single-store"; store: AvailabilityStore; note: string }
-	| {
-			mode: "single-country";
-			cities: AvailabilityCity[];
-			note: string;
-	  }
-	| { mode: "multi-country"; countries: AvailabilityCountry[] };
-
-function resolveStoreLayout(groups: AvailabilityCountry[]): StoreLayout {
-	if (groups.length === 0) return { mode: "empty" };
-
-	if (groups.length === 1) {
-		const group = groups[0]!;
-		const storeTotal = group.cities.reduce(
-			(sum, city) => sum + city.stores.length,
-			0,
-		);
-
-		if (storeTotal === 1 && group.cities.length === 1) {
-			const city = group.cities[0]!;
-			return {
-				mode: "single-store",
-				store: city.stores[0]!,
-				note: `${group.countryName} · ${city.regionName}`,
-			};
-		}
-
-		return {
-			mode: "single-country",
-			cities: group.cities,
-			note:
-				group.cities.length === 1
-					? `${group.countryName} · ${group.cities[0]!.regionName}`
-					: group.countryName,
-		};
-	}
-
-	return { mode: "multi-country", countries: groups };
-}
-
 function CityAccordionList({
 	cities,
 	expandedCities,
-	setExpandedCities,
+	onToggleCity,
 	nested = false,
 }: {
 	cities: AvailabilityCity[];
 	expandedCities: Set<number>;
-	setExpandedCities: Dispatch<SetStateAction<Set<number>>>;
+	onToggleCity: (regionId: number) => void;
 	nested?: boolean;
 }) {
 	return (
 		<ul className={nested ? "city-list city-list--nested" : "city-list"}>
 			{cities.map((city) => {
 				const cityOpen = expandedCities.has(city.regionId);
-				const cityLabel = formatStoresLabel(city.stores);
+				const summary = storeGroupSummary(city.stores);
 				return (
 					<li
 						key={city.regionId}
@@ -502,17 +346,7 @@ function CityAccordionList({
 							type="button"
 							className="city-block__toggle"
 							aria-expanded={cityOpen}
-							onClick={() => {
-								setExpandedCities((prev) => {
-									const next = new Set(prev);
-									if (next.has(city.regionId)) {
-										next.delete(city.regionId);
-									} else {
-										next.add(city.regionId);
-									}
-									return next;
-								});
-							}}
+							onClick={() => onToggleCity(city.regionId)}
 						>
 							<h4 className="city-block__name">
 								<span className="city-block__chevron" aria-hidden />
@@ -525,9 +359,9 @@ function CityAccordionList({
 									) : null}
 								</span>
 								<span
-									className={`city-block__qty${cityLabel === "Предзаказ" ? " store-row__status--preorder" : ""}`}
+									className={`city-block__qty${summary.preorder ? " store-row__status--preorder" : ""}`}
 								>
-									{cityLabel}
+									{summary.label}
 								</span>
 							</h4>
 						</button>
@@ -567,7 +401,7 @@ function StoreRow({ store }: { store: AvailabilityStore }) {
 				{store.phone ? (
 					<a
 						className="store-row__phone-btn"
-						href={`tel:${store.phone.replace(/[^\d+]/g, "")}`}
+						href={phoneTelHref(store.phone)}
 						aria-label={`Позвонить: ${store.phone}`}
 						title={store.phone}
 						onClick={(e) => e.stopPropagation()}
@@ -578,129 +412,6 @@ function StoreRow({ store }: { store: AvailabilityStore }) {
 			</div>
 		</li>
 	);
-}
-
-function countryProductUrl(
-	group: AvailabilityCountry,
-	product: CatalogProduct,
-): string | null {
-	if (group.country !== "BY" && group.country !== "KZ") return null;
-
-	for (const city of group.cities) {
-		for (const store of city.stores) {
-			if (store.url) return store.url;
-		}
-	}
-
-	const source = group.country === "BY" ? "hobbygames_by" : "hobbygames_kz";
-	return (
-		product.priceOffers?.find((offer) => offer.source === source)?.url ??
-		product.onlineOffers?.find((offer) => offer.source === source)?.url ??
-		null
-	);
-}
-
-function countryProductLinkLabel(country: Country): string {
-	if (country === "BY") return "Открыть на Hobby Games BY";
-	if (country === "KZ") return "Открыть на Hobby Games KZ";
-	return "Открыть";
-}
-
-function onlineOfferCountry(source: string | undefined): Country {
-	if (source === "hobbygames_by") return "BY";
-	if (source === "hobbygames_kz") return "KZ";
-	return "RU";
-}
-
-function countPresence(groups: AvailabilityCountry[]): {
-	stockCities: number;
-	stockStores: number;
-	preorder: boolean;
-} {
-	let stockCities = 0;
-	let stockStores = 0;
-	let preorder = false;
-
-	for (const group of groups) {
-		for (const city of group.cities) {
-			const stocked = city.stores.filter((store) => !store.preorder);
-			if (city.stores.some((store) => store.preorder)) preorder = true;
-			if (stocked.length === 0) continue;
-			stockCities += 1;
-			stockStores += stocked.length;
-		}
-	}
-
-	return { stockCities, stockStores, preorder };
-}
-
-function formatStoresLabel(stores: AvailabilityStore[]): string {
-	const stocked = stores.filter((store) => !store.preorder);
-	if (stocked.length === 0 && stores.some((store) => store.preorder)) {
-		return "Предзаказ";
-	}
-	return formatQuantity(
-		stocked.reduce((sum, store) => sum + Math.max(0, store.status), 0),
-	);
-}
-
-function summarizeAvailability(input: {
-	cityCount: number;
-	storeCount: number;
-	onlineCount: number;
-	regionId: number | null;
-}): string {
-	if (input.regionId != null && input.storeCount > 0) {
-		return `${input.storeCount} ${pluralStores(input.storeCount)}`;
-	}
-	if (input.cityCount > 0) {
-		return `${input.cityCount} ${pluralCities(input.cityCount)}`;
-	}
-	if (input.onlineCount > 0) return "Есть онлайн";
-	return "В наличии";
-}
-
-function pluralCities(n: number): string {
-	const mod10 = n % 10;
-	const mod100 = n % 100;
-	if (mod10 === 1 && mod100 !== 11) return "город";
-	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "города";
-	return "городов";
-}
-
-function externalLinkLabel(url: string): string {
-	try {
-		const host = new URL(url).hostname.replace(/^www\./, "");
-		if (host.includes("hobbygames.by")) return "Открыть на Hobby Games BY";
-		if (host.includes("hobbygames.kz")) return "Открыть на Hobby Games KZ";
-		if (host.includes("hobbygames")) return "Открыть на Hobby Games RU";
-		if (host.includes("lavkaigr")) return "Открыть в Лавке игр";
-		if (host.includes("gaga.ru")) return "Открыть на GaGa";
-		if (host.includes("znaemigraem")) return "Открыть в Знаем Играем";
-	} catch {
-		// ignore
-	}
-	return "Открыть на сайте";
-}
-
-function onlineLinkLabel(source: string | undefined, name: string): string {
-	if (source === "lavka") return "Открыть в Лавке игр";
-	if (source === "gaga") return "Открыть на GaGa";
-	if (source === "znaemigraem") return "Открыть в Знаем Играем";
-	if (source === "hobbygames_by") return "Открыть на Hobby Games BY";
-	if (source === "hobbygames_kz") return "Открыть на Hobby Games KZ";
-	if (source === "hobbygames") return "Открыть на Hobby Games RU";
-	return `Открыть в ${name}`;
-}
-
-function pluralStores(n: number): string {
-	const mod10 = n % 10;
-	const mod100 = n % 100;
-	if (mod10 === 1 && mod100 !== 11) return "магазин";
-	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-		return "магазина";
-	}
-	return "магазинов";
 }
 
 function PhoneIcon() {

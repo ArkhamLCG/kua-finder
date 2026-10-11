@@ -1,56 +1,29 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useCatalog } from "../hooks/useCatalog";
 import { homeSearchHref, useCatalogFilters } from "../hooks/useCatalogFilters";
+import { useHomeSearch } from "../hooks/useHomeSearch";
+import { citiesInCountry } from "../lib/product-list";
 import type { Country } from "../types";
 
 export function SiteHeader() {
 	const { catalog } = useCatalog();
+	const { country, regionId, setCountry, setRegionId } = useCatalogFilters();
 	const {
-		country,
-		regionId,
+		isHome,
+		searchOpen,
+		setSearchOpen,
 		query,
 		inStockOnly,
-		setCountry,
-		setRegionId,
 		setQuery,
 		setInStockOnly,
-	} = useCatalogFilters();
-	const location = useLocation();
-	const [searchParams, setSearchParams] = useSearchParams();
-	const isHome = location.pathname === "/";
-	const hydratedFromUrl = useRef(false);
-	const [searchOpen, setSearchOpen] = useState(false);
+		syncHomeUrl,
+	} = useHomeSearch();
 
-	useEffect(() => {
-		if (!isHome) {
-			hydratedFromUrl.current = false;
-			return;
-		}
-		if (hydratedFromUrl.current) return;
-		hydratedFromUrl.current = true;
-
-		setQuery(searchParams.get("q") ?? "");
-		setInStockOnly(searchParams.get("stock") === "1");
-	}, [isHome, searchParams, setQuery, setInStockOnly]);
-
-	useEffect(() => {
-		setSearchOpen(false);
-	}, [location.pathname]);
-
-	const syncHomeUrl = (nextQuery: string, nextStock: boolean) => {
-		const params = new URLSearchParams();
-		const trimmed = nextQuery.trim();
-		if (trimmed) params.set("q", trimmed);
-		if (nextStock) params.set("stock", "1");
-		setSearchParams(params, { replace: true });
-	};
-
-	const cities = useMemo(() => {
-		const all = catalog?.cities ?? [];
-		if (country == null) return all;
-		return all.filter((city) => city.country === country);
-	}, [catalog, country]);
+	const cities = useMemo(
+		() => citiesInCountry(catalog?.cities ?? [], country),
+		[catalog, country],
+	);
 
 	return (
 		<header

@@ -1,119 +1,174 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  buildNameIndex,
-  dedupeByMatchKey,
-  findMatchByName,
-  matchKey,
-  normalizeName,
-  titlesLooselyEqual,
+	buildNameIndex,
+	dedupeByMatchKey,
+	findMatchByName,
+	matchKey,
+	normalizeName,
+	titlesLooselyEqual,
 } from "./normalize-name.js";
 
 test("normalizeName collapses punctuation and ё/э", () => {
-  assert.equal(
-    normalizeName("Ужас Аркхэма. Карточная игра: Наследие Данвича"),
-    "ужас аркхема карточная игра наследие данвича",
-  );
-  assert.equal(
-    normalizeName("Ужас Аркхэма — Кампания"),
-    normalizeName("Ужас Аркхема - Кампания"),
-  );
+	assert.equal(
+		normalizeName("Ужас Аркхэма. Карточная игра: Наследие Данвича"),
+		"ужас аркхема карточная игра наследие данвича",
+	);
+	assert.equal(
+		normalizeName("Ужас Аркхэма — Кампания"),
+		normalizeName("Ужас Аркхема - Кампания"),
+	);
 });
 
 test("matchKey drops pack number markers like №6", () => {
-  assert.equal(
-    matchKey(
-      "Ужас Аркхэма. Карточная игра: Забытая эпоха №6. Расколотая вечность",
-    ),
-    matchKey(
-      "Ужас Аркхэма. Карточная игра: Забытая эпоха. Расколотая вечность",
-    ),
-  );
-  assert.equal(
-    matchKey("Забытая эпоха No.5 Глубины Йота"),
-    matchKey("Забытая эпоха Глубины Йота"),
-  );
+	assert.equal(
+		matchKey(
+			"Ужас Аркхэма. Карточная игра: Забытая эпоха №6. Расколотая вечность",
+		),
+		matchKey(
+			"Ужас Аркхэма. Карточная игра: Забытая эпоха. Расколотая вечность",
+		),
+	);
+	assert.equal(
+		matchKey("Забытая эпоха No.5 Глубины Йота"),
+		matchKey("Забытая эпоха Глубины Йота"),
+	);
 });
 
 test("matchKey drops edition years like (2026)", () => {
-  assert.equal(
-    matchKey(
-      "Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс (2026)",
-    ),
-    matchKey("Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс"),
-  );
+	assert.equal(
+		matchKey(
+			"Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс (2026)",
+		),
+		matchKey("Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс"),
+	);
 });
 
 test("dedupeByMatchKey keeps title without year", () => {
-  const { products, merges } = dedupeByMatchKey([
-    {
-      id: 788433,
-      name: "Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс (2026)",
-    },
-    {
-      id: 88186,
-      name: "Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс",
-    },
-  ]);
+	const { products, merges } = dedupeByMatchKey([
+		{
+			id: 788433,
+			name: "Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс (2026)",
+		},
+		{
+			id: 88186,
+			name: "Ужас Аркхэма. Карточная игра: Колода сыщика. Харви Уолтерс",
+		},
+	]);
 
-  assert.equal(products.length, 1);
-  assert.equal(products[0]?.id, 88186);
-  assert.equal(merges.length, 1);
-  assert.equal(merges[0]?.dropped.id, 788433);
+	assert.equal(products.length, 1);
+	assert.equal(products[0]?.id, 88186);
+	assert.equal(merges.length, 1);
+	assert.equal(merges[0]?.dropped.id, 788433);
 });
 
 test("findMatchByName matches across retailers", () => {
-  const catalog = [
-    { id: 1, name: "Ужас Аркхэма. Карточная игра: Забытая эпоха" },
-    { id: 2, name: "Другая игра" },
-  ];
-  const index = buildNameIndex(catalog);
+	const catalog = [
+		{ id: 1, name: "Ужас Аркхэма. Карточная игра: Забытая эпоха" },
+		{ id: 2, name: "Другая игра" },
+	];
+	const index = buildNameIndex(catalog);
 
-  const hit = findMatchByName(
-    "Ужас Аркхема. Карточная игра: Забытая эпоха",
-    catalog,
-    index,
-  );
-  assert.ok(hit);
-  assert.equal(hit.id, 1);
+	const hit = findMatchByName(
+		"Ужас Аркхема. Карточная игра: Забытая эпоха",
+		catalog,
+		index,
+	);
+	assert.ok(hit);
+	assert.equal(hit.id, 1);
 
-  assert.equal(
-    findMatchByName("Несуществующий товар", catalog, index),
-    undefined,
-  );
+	assert.equal(
+		findMatchByName("Несуществующий товар", catalog, index),
+		undefined,
+	);
 });
 
 test("findMatchByName ignores №N inserted by another shop", () => {
-  const catalog = [
-    {
-      id: 76166,
-      name: "Ужас Аркхэма. Карточная игра: Забытая эпоха. Расколотая вечность",
-    },
-  ];
-  const index = buildNameIndex(catalog);
-  const hit = findMatchByName(
-    "Ужас Аркхэма. Карточная игра: Забытая эпоха №6. Расколотая вечность",
-    catalog,
-    index,
-  );
-  assert.ok(hit);
-  assert.equal(hit.id, 76166);
+	const catalog = [
+		{
+			id: 76166,
+			name: "Ужас Аркхэма. Карточная игра: Забытая эпоха. Расколотая вечность",
+		},
+	];
+	const index = buildNameIndex(catalog);
+	const hit = findMatchByName(
+		"Ужас Аркхэма. Карточная игра: Забытая эпоха №6. Расколотая вечность",
+		catalog,
+		index,
+	);
+	assert.ok(hit);
+	assert.equal(hit.id, 76166);
 });
 
 test("titlesLooselyEqual allows missing cycle prefix, not campaign⊂scenario", () => {
-  assert.equal(
-    titlesLooselyEqual(
-      "Ужас Аркхэма. Карточная игра: Потерянные во времени и пространстве",
-      "Ужас Аркхэма. Карточная игра: Наследие Данвича. Потерянные во времени и пространстве",
-    ),
-    true,
-  );
+	assert.equal(
+		titlesLooselyEqual(
+			"Ужас Аркхэма. Карточная игра: Потерянные во времени и пространстве",
+			"Ужас Аркхэма. Карточная игра: Наследие Данвича. Потерянные во времени и пространстве",
+		),
+		true,
+	);
 
-  assert.equal(
-    titlesLooselyEqual(
-      "Ужас Аркхэма. Карточная игра: Забытая эпоха",
-      "Ужас Аркхэма. Карточная игра: Забытая эпоха. Расколотая вечность",
-    ),
-    false,
-  );
+	assert.equal(
+		titlesLooselyEqual(
+			"Ужас Аркхэма. Карточная игра: Забытая эпоха",
+			"Ужас Аркхэма. Карточная игра: Забытая эпоха. Расколотая вечность",
+		),
+		false,
+	);
+});
+
+test("shop badge and season infix still match André Patel", () => {
+	const clean =
+		"Ужас Аркхэма. Карточная игра: Второй сезон. Колода сыщика: Андре Патель";
+	const preorder = `${clean} [Предзаказ]`;
+	const withoutSeason =
+		"Ужас Аркхэма. Карточная игра: Колода сыщика. Андре Патель";
+	const kzStyle = "Ужас Аркхэма Карточная игра: Колода сыщика Андре Патель";
+
+	assert.equal(matchKey(clean), matchKey(preorder));
+	assert.equal(titlesLooselyEqual(clean, withoutSeason), true);
+	assert.equal(titlesLooselyEqual(clean, kzStyle), true);
+	assert.equal(
+		titlesLooselyEqual(
+			clean,
+			"Ужас Аркхэма. Карточная игра: Второй сезон. Колода сыщика: Мари Ламбо",
+		),
+		false,
+	);
+	assert.equal(
+		titlesLooselyEqual("Ужас Аркхэма. Карточная игра: Второй сезон", clean),
+		false,
+	);
+	assert.equal(
+		titlesLooselyEqual(
+			"Ужас Аркхэма. Карточная игра",
+			"Ужас Аркхэма. Карточная игра: Второй сезон",
+		),
+		false,
+	);
+
+	const catalog = [{ id: 1, name: clean }];
+	const index = buildNameIndex(catalog);
+	assert.equal(findMatchByName(preorder, catalog, index)?.id, 1);
+	assert.equal(findMatchByName(withoutSeason, catalog, index)?.id, 1);
+
+	const { products, merges } = dedupeByMatchKey([
+		{ id: 10, name: withoutSeason },
+		{ id: 20, name: preorder },
+		{
+			id: 30,
+			name: "Ужас Аркхэма. Карточная игра: Второй сезон. Колода сыщика: Мари Ламбо",
+		},
+	]);
+	assert.equal(products.length, 2);
+	assert.equal(products.find((item) => item.id === 20)?.name, clean);
+	assert.equal(
+		products.some((item) => item.id === 30),
+		true,
+	);
+	assert.equal(merges.length, 1);
+	assert.equal(merges[0]?.kept.id, 20);
+	assert.equal(merges[0]?.kept.name, clean);
+	assert.equal(merges[0]?.dropped.id, 10);
 });

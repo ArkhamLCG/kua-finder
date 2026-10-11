@@ -246,10 +246,14 @@ export function countAvailableStores(
 	);
 }
 
-function onlineOfferCountry(source: OnlineRetailerSource): Country {
+export function onlineSourceCountry(source: string | undefined): Country {
 	if (source === "hobbygames_by") return "BY";
 	if (source === "hobbygames_kz") return "KZ";
 	return "RU";
+}
+
+function onlineOfferCountry(source: OnlineRetailerSource): Country {
+	return onlineSourceCountry(source);
 }
 
 /** True when the product is in stock at an online retailer for the filter. */
